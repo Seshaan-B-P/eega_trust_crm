@@ -1,0 +1,95 @@
+{
+  "info": {
+    "name": "EEGA Trust - Child Management Tests",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Get All Children",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{admin_token}}"
+          }
+        ],
+        "url": {
+          "raw": "http://localhost:5000/api/children",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5000",
+          "path": ["api", "children"],
+          "query": [
+            {
+              "key": "page",
+              "value": "1"
+            },
+            {
+              "key": "limit",
+              "value": "10"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Create New Child",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{admin_token}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Test Child\",\n  \"dateOfBirth\": \"2018-05-15\",\n  \"gender\": \"male\",\n  \"background\": \"Orphaned in accident\",\n  \"medicalHistory\": \"None\",\n  \"allergies\": \"None\",\n  \"bloodGroup\": \"A+\",\n  \"guardianInfo\": {\n    \"name\": \"Local Police\",\n    \"relationship\": \"guardian\",\n    \"phone\": \"1234567890\",\n    \"address\": \"Police Station, City\"\n  }\n}"
+        },
+        "url": {
+          "raw": "http://localhost:5000/api/children",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5000",
+          "path": ["api", "children"]
+        }
+      }
+    },
+    {
+      "name": "Get Child Statistics",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{admin_token}}"
+          }
+        ],
+        "url": {
+          "raw": "http://localhost:5000/api/children/stats/overview",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5000",
+          "path": ["api", "children", "stats", "overview"]
+        }
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "admin_token",
+      "value": "YOUR_ADMIN_JWT_TOKEN_HERE"
+    },
+    {
+      "key": "staff_token",
+      "value": "YOUR_STAFF_JWT_TOKEN_HERE"
+    }
+  ]
+}
