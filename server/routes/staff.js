@@ -2,14 +2,22 @@ const express = require('express');
 const router = express.Router();
 const {
     getAllStaff,
+    getAvailableStaff,
     getStaffById,
     createStaff,
     updateStaff,
-    deactivateStaff
+    deactivateStaff,
+    getStaffStats
 } = require('../controllers/staffController');
 const { authenticate, authorize } = require('../middleware/auth');
 
-// All routes require admin authentication
+// Public/Protected route for available staff (needed for dropdowns)
+router.get('/available', authenticate, getAvailableStaff);
+
+// Staff stats
+router.get('/stats/overview', authenticate, getStaffStats);
+
+// All other routes require admin authentication
 router.use(authenticate, authorize('admin'));
 
 // Staff management routes

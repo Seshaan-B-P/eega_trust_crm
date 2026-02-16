@@ -4,7 +4,8 @@ const {
     markAttendance,
     getAttendance,
     getAttendanceById,
-    updateAttendance
+    updateAttendance,
+    getAttendanceStats
 } = require('../controllers/attendanceController');
 const { authenticate } = require('../middleware/auth');
 
@@ -12,6 +13,7 @@ const { authenticate } = require('../middleware/auth');
 router.use(authenticate);
 
 // Attendance routes
+router.get('/stats/overview', getAttendanceStats);
 router.get('/', getAttendance);
 router.get('/:id', getAttendanceById);
 router.post('/', markAttendance);

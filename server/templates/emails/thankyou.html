@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thank You for Your Donation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .donation-details {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .donation-details table {
+            width: 100%;
+        }
+
+        .donation-details td {
+            padding: 10px;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .donation-details td:first-child {
+            font-weight: bold;
+            width: 40%;
+        }
+
+        .amount {
+            font-size: 24px;
+            color: #28a745;
+            font-weight: bold;
+        }
+
+        .footer {
+            background: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            font-size: 14px;
+            color: #6c757d;
+        }
+
+        .button {
+            display: inline-block;
+            padding: 12px 24px;
+            background: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+
+        .button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Thank You for Your Generosity!</h1>
+        </div>
+        <div class="content">
+            <p>Dear {{donorName}},</p>
+
+            <p>On behalf of everyone at EEGA Trust, we want to express our heartfelt gratitude for your generous
+                donation. Your support will make a significant difference in the lives of the children we care for.</p>
+
+            <div class="donation-details">
+                <h3>Donation Details</h3>
+                <table>
+                    <tr>
+                        <td>Donation ID:</td>
+                        <td>{{donationId}}</td>
+                    </tr>
+                    <tr>
+                        <td>Date:</td>
+                        <td>{{date}}</td>
+                    </tr>
+                    <tr>
+                        <td>Purpose:</td>
+                        <td>{{purpose}}</td>
+                    </tr>
+                    <tr>
+                        <td>Amount:</td>
+                        <td class="amount">₹{{amount}}</td>
+                    </tr>
+                    {{#if receiptNumber}}
+                    <tr>
+                        <td>Receipt Number:</td>
+                        <td>{{receiptNumber}}</td>
+                    </tr>
+                    {{/if}}
+                </table>
+            </div>
+
+            <p>Your donation will help us provide:</p>
+            <ul>
+                <li>Nutritious meals for children</li>
+                <li>Educational supplies and support</li>
+                <li>Healthcare and medical assistance</li>
+                <li>A safe and nurturing environment</li>
+            </ul>
+
+            {{#if receiptUrl}}
+            <div style="text-align: center;">
+                <a href="{{receiptUrl}}" class="button">Download Receipt</a>
+            </div>
+            {{/if}}
+
+            <p>We would love to keep you updated about how your donation is making a difference. You can follow our
+                journey on social media or visit our website for regular updates.</p>
+
+            <p>Once again, thank you for being a part of our mission to provide love, care, and support to children in
+                need.</p>
+
+            <p>With gratitude,<br>
+                <strong>The EEGA Trust Team</strong>
+            </p>
+        </div>
+        <div class="footer">
+            <p>EEGA Trust | 123 Main Street, City, State - 123456<br>
+                Phone: +91 9876543210 | Email: info@eegatrust.org</p>
+            <p>This is an automated message, please do not reply to this email.</p>
+        </div>
+    </div>
+</body>
+
+</html>

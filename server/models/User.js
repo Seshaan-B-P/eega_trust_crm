@@ -1,5 +1,7 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+// Ensure Staff model is registered (avoid MissingSchemaError)
+require('./Staff');
 
 const userSchema = new mongoose.Schema({
     name: { type: String, required: true },
@@ -20,19 +22,30 @@ const userSchema = new mongoose.Schema({
 });
 
 // Hash password before saving
-userSchema.pre('save', async function(next) {
-    if (!this.isModified('password')) return next();
-    this.password = await bcrypt.hash(this.password, 10);
-    next();
+userSchema.pre('save', async function (next) {
+    if (!this.isModified('password')) {
+        console.log('Password not modified, skipping hash');
+        return next();
+    }
+    console.log('Password modified, hashing...');
+    try {
+        const salt = await bcrypt.genSalt(10);
+        this.password = await bcrypt.hash(this.password, salt);
+        console.log('Password hashed successfully');
+        next();
+    } catch (error) {
+        console.error('Error hashing password:', error);
+        next(error);
+    }
 });
 // Add post-save middleware to create/update Staff profile
-userSchema.post('save', async function(doc, next) {
+userSchema.post('save', async function (doc, next) {
     if (doc.role === 'staff') {
         const Staff = mongoose.model('Staff');
-        
+
         try {
             let staffProfile = await Staff.findOne({ user: doc._id });
-            
+
             if (!staffProfile) {
                 // Create staff profile if doesn't exist
                 staffProfile = await Staff.create({
@@ -40,7 +53,7 @@ userSchema.post('save', async function(doc, next) {
                     designation: 'Caretaker',
                     createdBy: doc._id
                 });
-                
+
                 // Update user with staff profile reference
                 doc.staffProfile = staffProfile._id;
                 await doc.save();
@@ -52,7 +65,7 @@ userSchema.post('save', async function(doc, next) {
     next();
 });
 // Compare password method
-userSchema.methods.comparePassword = async function(candidatePassword) {
+userSchema.methods.comparePassword = async function (candidatePassword) {
     return await bcrypt.compare(candidatePassword, this.password);
 };
 

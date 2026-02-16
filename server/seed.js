@@ -13,7 +13,7 @@ const seedDatabase = async () => {
         console.log('🔗 Connecting to MongoDB...');
         await mongoose.connect(process.env.MONGODB_URI);
         console.log('✅ Connected to MongoDB');
-        
+
         // Clear existing data
         console.log('🧹 Clearing existing data...');
         await Promise.all([
@@ -24,7 +24,7 @@ const seedDatabase = async () => {
             Attendance.deleteMany({})
         ]);
         console.log('✅ Database cleared');
-        
+
         // Create admin user
         console.log('👑 Creating admin user...');
         const adminPassword = await bcrypt.hash('admin123', 10);
@@ -36,7 +36,7 @@ const seedDatabase = async () => {
             phone: '9876543210',
             isActive: true
         });
-        
+
         // Create staff users
         console.log('👥 Creating staff users...');
         const staffMembers = [
@@ -62,7 +62,7 @@ const seedDatabase = async () => {
                 department: 'cook'
             }
         ];
-        
+
         const createdStaff = [];
         for (const staffData of staffMembers) {
             const staffPassword = await bcrypt.hash('staff123', 10);
@@ -74,23 +74,28 @@ const seedDatabase = async () => {
                 phone: staffData.phone,
                 isActive: true
             });
-            
+
+            const employeeId = await Staff.generateEmployeeId();
+
             const staff = await Staff.create({
                 user: user._id,
+                employeeId,
                 designation: staffData.designation,
                 department: staffData.department,
                 createdBy: admin._id
             });
-            
+
             user.staffProfile = staff._id;
             await user.save();
-            
+
             createdStaff.push({ user, staff });
         }
-        
+
         // Create children
         console.log('👶 Creating sample children...');
-        const children = await Child.create([
+        // Create children
+        console.log('👶 Creating sample children...');
+        const childrenData = [
             {
                 name: 'Rahul Verma',
                 dateOfBirth: new Date('2015-03-15'),
@@ -132,15 +137,22 @@ const seedDatabase = async () => {
                 status: 'active',
                 createdBy: admin._id
             }
-        ]);
-        
+        ];
+
+        const children = [];
+        for (const data of childrenData) {
+            const childId = await Child.getNextChildId();
+            const child = await Child.create({ ...data, childId });
+            children.push(child);
+        }
+
         // Create daily reports for the last 7 days
         console.log('📝 Creating sample daily reports...');
         const today = new Date();
         for (let i = 0; i < 7; i++) {
             const reportDate = new Date(today);
             reportDate.setDate(reportDate.getDate() - i);
-            
+
             for (const child of children) {
                 await DailyReport.create({
                     child: child._id,
@@ -156,13 +168,13 @@ const seedDatabase = async () => {
                 });
             }
         }
-        
+
         // Create attendance records for the last 30 days
         console.log('✅ Creating sample attendance records...');
         for (let i = 0; i < 30; i++) {
             const attendanceDate = new Date(today);
             attendanceDate.setDate(attendanceDate.getDate() - i);
-            
+
             for (const child of children) {
                 await Attendance.create({
                     child: child._id,
@@ -173,7 +185,7 @@ const seedDatabase = async () => {
                 });
             }
         }
-        
+
         console.log('\n🎉 Database seeded successfully!');
         console.log('\n📋 Login Credentials:');
         console.log('=====================');
@@ -196,7 +208,7 @@ const seedDatabase = async () => {
         console.log(`   - ${createdStaff.length} Staff Members`);
         console.log(`   - 7 days of Daily Reports`);
         console.log(`   - 30 days of Attendance Records`);
-        
+
         process.exit(0);
     } catch (error) {
         console.error('❌ Seeding error:', error);

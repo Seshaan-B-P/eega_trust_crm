@@ -107,7 +107,7 @@ staffSchema.virtual('assignedChildren', {
 });
 
 // Static method to generate employee ID
-staffSchema.statics.generateEmployeeId = async function() {
+staffSchema.statics.generateEmployeeId = async function () {
     const currentYear = new Date().getFullYear().toString().slice(-2);
     const prefix = 'EMP';
     const lastStaff = await this.findOne(
@@ -115,23 +115,23 @@ staffSchema.statics.generateEmployeeId = async function() {
         { employeeId: 1 },
         { sort: { employeeId: -1 } }
     );
-    
+
     let sequence = 1;
     if (lastStaff && lastStaff.employeeId) {
         const lastSequence = parseInt(lastStaff.employeeId.slice(-3)) || 0;
         sequence = lastSequence + 1;
     }
-    
+
     return `${prefix}${currentYear}${sequence.toString().padStart(3, '0')}`;
 };
 
 // Pre-save middleware
-staffSchema.pre('save', async function(next) {
+staffSchema.pre('save', async function (next) {
     // Generate employee ID if not exists
     if (!this.employeeId) {
         this.employeeId = await this.constructor.generateEmployeeId();
     }
-    
+
     // Update assignedChildrenCount from User model
     if (this.user) {
         const User = mongoose.model('User');
@@ -140,18 +140,16 @@ staffSchema.pre('save', async function(next) {
             this.assignedChildrenCount = user.assignedChildren?.length || 0;
         }
     }
-    
+
     next();
 });
 
 // Indexes
-staffSchema.index({ employeeId: 1 });
-staffSchema.index({ user: 1 });
 staffSchema.index({ department: 1 });
 staffSchema.index({ isActive: 1 });
 
 // Method to check if staff can take more children
-staffSchema.methods.canTakeMoreChildren = function() {
+staffSchema.methods.canTakeMoreChildren = function () {
     return this.assignedChildrenCount < this.maxChildrenCapacity;
 };
 

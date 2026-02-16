@@ -8,10 +8,21 @@ const path = require('path');
 const app = express();
 
 // ========== MIDDLEWARE ==========
-app.use(cors());
+app.use(cors({
+    origin: 'http://localhost:3000',
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Request Logger
+app.use((req, res, next) => {
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.originalUrl}`);
+    next();
+});
 
 // ========== DATABASE CONNECTION ==========
 const connectDB = async () => {
@@ -61,7 +72,7 @@ app.get('/health', (req, res) => {
         2: 'connecting',
         3: 'disconnecting'
     };
-    
+
     res.json({
         status: 'healthy',
         server: 'EEGA Trust CRM',
@@ -78,7 +89,7 @@ app.get('/api/docs', (req, res) => {
         version: '1.0.0',
         baseURL: 'http://localhost:' + (process.env.PORT || 5000),
         authentication: 'Bearer Token required for all endpoints except /api/auth/login',
-        
+
         endpoints: [
             {
                 method: 'POST',
@@ -119,7 +130,7 @@ app.get('/api/docs', (req, res) => {
                 auth: true
             }
         ],
-        
+
         testCredentials: {
             admin: { email: 'admin@eega.com', password: 'admin123' },
             staff: { email: 'staff@eega.com', password: 'staff123' }
@@ -131,48 +142,65 @@ app.get('/api/docs', (req, res) => {
 // We'll add these routes one by one
 const setupRoutes = async () => {
     try {
-        // Import and use route files
+        console.log('Loading routes...');
+
+        console.log('Loading Auth routes...');
         const authRoutes = require('./routes/auth');
-        const childRoutes = require('./routes/child');
-        
         app.use('/api/auth', authRoutes);
+
+        console.log('Loading Child routes...');
+        const childRoutes = require('./routes/child');
         app.use('/api/children', childRoutes);
-        
+
+        console.log('Loading Staff routes...');
+        const staffRoutes = require('./routes/staff');
+        app.use('/api/staff', staffRoutes);
+
+        console.log('Loading Report routes...');
+        const dailyReportRoutes = require('./routes/dailyReport');
+        app.use('/api/reports', dailyReportRoutes);
+
+        console.log('Loading Attendance routes...');
+        const attendanceRoutes = require('./routes/attendance');
+        app.use('/api/attendance', attendanceRoutes);
+
         console.log('✅ Routes loaded successfully');
     } catch (error) {
-        console.error('❌ Error loading routes:', error.message);
+        console.error('❌ Error loading routes:', error);
         console.log('⚠️  Running with basic routes only');
     }
 };
 
 // ========== ERROR HANDLING ==========
-// 404 Handler
-app.use('*', (req, res) => {
-    res.status(404).json({
-        success: false,
-        message: '🔍 Route not found',
-        requestedUrl: req.originalUrl,
-        availableEndpoints: [
-            'GET /',
-            'GET /health',
-            'GET /api/docs',
-            'POST /api/auth/login',
-            'GET /api/children'
-        ]
+const setupErrorHandling = () => {
+    // 404 Handler
+    app.use('*', (req, res) => {
+        res.status(404).json({
+            success: false,
+            message: '🔍 Route not found',
+            requestedUrl: req.originalUrl,
+            availableEndpoints: [
+                'GET /',
+                'GET /health',
+                'GET /api/docs',
+                'POST /api/auth/login',
+                'GET /api/children'
+            ]
+        });
     });
-});
 
-// Global error handler
-app.use((err, req, res, next) => {
-    console.error('❌ Server Error:', err.stack);
-    
-    res.status(err.status || 500).json({
-        success: false,
-        message: 'Something went wrong!',
-        error: process.env.NODE_ENV === 'development' ? err.message : undefined,
-        timestamp: new Date().toISOString()
+    // Global error handler
+    app.use((err, req, res, next) => {
+        console.error('❌ Server Error:', err.stack);
+
+        res.status(err.status || 500).json({
+            success: false,
+            message: 'Something went wrong!',
+            error: process.env.NODE_ENV === 'development' ? err.message : undefined,
+            timestamp: new Date().toISOString()
+        });
     });
-});
+};
 
 // ========== SERVER STARTUP ==========
 const PORT = process.env.PORT || 5000;
@@ -180,13 +208,16 @@ const PORT = process.env.PORT || 5000;
 const startServer = async () => {
     console.log('🚀 Starting EEGA Trust CRM Server...');
     console.log('====================================');
-    
+
     // Connect to database
     await connectDB();
-    
+
     // Setup routes
     await setupRoutes();
-    
+
+    // Setup error handling (MUST be last)
+    setupErrorHandling();
+
     // Start server
     const server = app.listen(PORT, () => {
         console.log(`
@@ -215,7 +246,7 @@ const startServer = async () => {
 ====================================
         `);
     });
-    
+
     // Graceful shutdown
     process.on('SIGTERM', () => {
         console.log('🛑 SIGTERM received. Shutting down gracefully...');
@@ -224,7 +255,7 @@ const startServer = async () => {
             process.exit(0);
         });
     });
-    
+
     return server;
 };
 

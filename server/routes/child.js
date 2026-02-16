@@ -1,105 +1,77 @@
-// routes/child.js - Child management routes
 const express = require('express');
 const router = express.Router();
-const jwt = require('jsonwebtoken');
+const Child = require('../models/Child');
+const multer = require('multer');
+const path = require('path');
+const { authenticate, authorize } = require('../middleware/auth');
 
-// Mock children database (in memory)
-let children = [
-    {
-        id: '1',
-        childId: 'CH24001',
-        name: 'Rahul Sharma',
-        dateOfBirth: '2015-03-15',
-        age: 9,
-        gender: 'male',
-        background: 'Orphaned in road accident',
-        medicalHistory: 'None',
-        allergies: 'Dust',
-        bloodGroup: 'B+',
-        status: 'active',
-        dateOfAdmission: '2023-01-15',
-        assignedStaff: '2',
-        guardianInfo: {
-            name: 'Local Police Station',
-            relationship: 'guardian',
-            phone: '100'
-        },
-        createdAt: '2023-01-15T10:00:00Z'
+// Configure Multer for file upload
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, 'uploads/') // Make sure this folder exists
     },
-    {
-        id: '2',
-        childId: 'CH24002',
-        name: 'Priya Patel',
-        dateOfBirth: '2017-07-22',
-        age: 7,
-        gender: 'female',
-        background: 'Abandoned at hospital',
-        medicalHistory: 'Asthma (mild)',
-        allergies: 'None',
-        bloodGroup: 'O+',
-        status: 'active',
-        dateOfAdmission: '2023-02-20',
-        assignedStaff: '2',
-        guardianInfo: {
-            name: 'Government Hospital',
-            relationship: 'temporary guardian',
-            phone: '108'
-        },
-        createdAt: '2023-02-20T11:30:00Z'
-    },
-    {
-        id: '3',
-        childId: 'CH24003',
-        name: 'Arun Kumar',
-        dateOfBirth: '2013-11-30',
-        age: 10,
-        gender: 'male',
-        background: 'Parents passed away in flood',
-        medicalHistory: 'Malnutrition history',
-        allergies: 'Milk',
-        bloodGroup: 'A+',
-        status: 'active',
-        dateOfAdmission: '2023-03-10',
-        assignedStaff: '2',
-        createdAt: '2023-03-10T09:15:00Z'
+    filename: function (req, file, cb) {
+        cb(null, 'child-' + Date.now() + path.extname(file.originalname))
     }
-];
+});
 
-// Authentication middleware
-const authenticate = (req, res, next) => {
+const upload = multer({
+    storage: storage,
+    limits: { fileSize: 5000000 }, // 5MB limit
+    fileFilter: function (req, file, cb) {
+        const filetypes = /jpeg|jpg|png|gif/;
+        const mimetype = filetypes.test(file.mimetype);
+        const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
+        if (mimetype && extname) {
+            return cb(null, true);
+        }
+        cb(new Error('Only image files are allowed!'));
+    }
+});
+
+// Photo upload endpoint
+router.post('/:id/photo', upload.single('photo'), async (req, res) => {
     try {
-        const token = req.headers.authorization?.replace('Bearer ', '');
-        
-        if (!token) {
-            return res.status(401).json({
+        if (!req.file) {
+            return res.status(400).json({
                 success: false,
-                message: 'No token provided'
+                message: 'Please upload a file'
             });
         }
-        
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret');
-        req.user = decoded;
-        next();
+
+        const child = await Child.findOne({
+            $or: [{ _id: req.params.id }, { childId: req.params.id }]
+        });
+
+        if (!child) {
+            return res.status(404).json({
+                success: false,
+                message: 'Child not found'
+            });
+        }
+
+        // Construct URL (assuming server runs on same host)
+        // In production, use environment variable for base URL
+        const photoUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
+
+        child.photo = photoUrl;
+        await child.save();
+
+        res.json({
+            success: true,
+            message: 'Photo uploaded successfully',
+            data: child,
+            photoUrl: photoUrl
+        });
+
     } catch (error) {
-        res.status(401).json({
+        console.error('Photo upload error:', error);
+        res.status(500).json({
             success: false,
-            message: 'Invalid token'
+            message: error.message || 'Server error uploading photo'
         });
     }
-};
-
-// Authorization middleware
-const authorize = (...roles) => {
-    return (req, res, next) => {
-        if (!roles.includes(req.user.role)) {
-            return res.status(403).json({
-                success: false,
-                message: `Role '${req.user.role}' is not authorized`
-            });
-        }
-        next();
-    };
-};
+});
 
 // Test endpoint
 router.get('/test', (req, res) => {
@@ -110,54 +82,90 @@ router.get('/test', (req, res) => {
     });
 });
 
+// Get child statistics
+router.get('/stats/overview', authenticate, async (req, res) => {
+    try {
+        const stats = {
+            total: await Child.countDocuments(),
+            active: await Child.countDocuments({ status: 'active' }),
+            discharged: await Child.countDocuments({ status: 'discharged' }),
+            gender: {
+                male: await Child.countDocuments({ gender: 'male' }),
+                female: await Child.countDocuments({ gender: 'female' })
+            },
+            ageGroups: {
+                '0-5': await Child.countDocuments({ age: { $gte: 0, $lte: 5 } }),
+                '6-10': await Child.countDocuments({ age: { $gte: 6, $lte: 10 } }),
+                '11-15': await Child.countDocuments({ age: { $gte: 11, $lte: 15 } }),
+                '16-18': await Child.countDocuments({ age: { $gte: 16, $lte: 18 } })
+            }
+        };
+
+        res.json({
+            success: true,
+            stats
+        });
+
+    } catch (error) {
+        console.error('Stats error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error getting statistics'
+        });
+    }
+});
+
 // Get all children
-router.get('/', authenticate, (req, res) => {
+router.get('/', authenticate, async (req, res) => {
     try {
         const { status, search, page = 1, limit = 10 } = req.query;
-        
-        let filteredChildren = [...children];
-        
-        // Filter by status
-        if (status) {
-            filteredChildren = filteredChildren.filter(child => child.status === status);
+
+        const query = {};
+
+        // Filter by status (default to active if not specified, unless 'all' is requested)
+        if (status && status !== 'all') {
+            query.status = status;
         }
-        
+
         // Search filter
         if (search) {
-            const searchLower = search.toLowerCase();
-            filteredChildren = filteredChildren.filter(child =>
-                child.name.toLowerCase().includes(searchLower) ||
-                child.childId.toLowerCase().includes(searchLower)
-            );
+            query.$or = [
+                { name: { $regex: search, $options: 'i' } },
+                { childId: { $regex: search, $options: 'i' } }
+            ];
         }
-        
+
         // Pagination
         const pageNum = parseInt(page);
         const limitNum = parseInt(limit);
-        const startIndex = (pageNum - 1) * limitNum;
-        const endIndex = pageNum * limitNum;
-        
-        const paginatedChildren = filteredChildren.slice(startIndex, endIndex);
-        
+        const skip = (pageNum - 1) * limitNum;
+
+        const children = await Child.find(query)
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limitNum);
+
+        const total = await Child.countDocuments(query);
+
         // Statistics
         const stats = {
-            total: children.length,
-            active: children.filter(c => c.status === 'active').length,
-            discharged: children.filter(c => c.status === 'discharged').length,
-            male: children.filter(c => c.gender === 'male').length,
-            female: children.filter(c => c.gender === 'female').length
+            total: await Child.countDocuments(),
+            active: await Child.countDocuments({ status: 'active' }),
+            discharged: await Child.countDocuments({ status: 'discharged' }),
+            male: await Child.countDocuments({ gender: 'male' }),
+            female: await Child.countDocuments({ gender: 'female' })
         };
-        
+
         res.json({
             success: true,
-            count: paginatedChildren.length,
-            total: filteredChildren.length,
+            count: children.length,
+            total,
             page: pageNum,
-            totalPages: Math.ceil(filteredChildren.length / limitNum),
+            totalPages: Math.ceil(total / limitNum),
             stats,
-            children: paginatedChildren
+            children
         });
-        
+
     } catch (error) {
         console.error('Get children error:', error);
         res.status(500).json({
@@ -168,23 +176,31 @@ router.get('/', authenticate, (req, res) => {
 });
 
 // Get child by ID
-router.get('/:id', authenticate, (req, res) => {
+router.get('/:id', authenticate, async (req, res) => {
     try {
-        const child = children.find(c => c.id === req.params.id || c.childId === req.params.id);
-        
+        const child = await Child.findOne({
+            $or: [{ _id: req.params.id }, { childId: req.params.id }]
+        });
+
         if (!child) {
             return res.status(404).json({
                 success: false,
                 message: 'Child not found'
             });
         }
-        
+
         res.json({
             success: true,
             child
         });
-        
+
     } catch (error) {
+        if (error.kind === 'ObjectId') {
+            return res.status(404).json({
+                success: false,
+                message: 'Child not found'
+            });
+        }
         console.error('Get child error:', error);
         res.status(500).json({
             success: false,
@@ -194,114 +210,84 @@ router.get('/:id', authenticate, (req, res) => {
 });
 
 // Create new child (admin only)
-router.post('/', authenticate, authorize('admin'), (req, res) => {
+router.post('/', authenticate, authorize('admin'), async (req, res) => {
     try {
         const childData = req.body;
-        
-        // Validation
-        if (!childData.name || !childData.dateOfBirth || !childData.gender || !childData.background) {
+
+        // Validation handled by Mongoose schema but good to check specifics
+        if (!childData.name || !childData.dateOfBirth || !childData.gender) {
             return res.status(400).json({
                 success: false,
-                message: 'Name, date of birth, gender, and background are required'
+                message: 'Name, date of birth, and gender are required'
             });
         }
-        
+
         // Generate child ID
-        const lastChild = children[children.length - 1];
-        let sequence = 1;
-        if (lastChild && lastChild.childId) {
-            const lastSequence = parseInt(lastChild.childId.slice(-3)) || 0;
-            sequence = lastSequence + 1;
-        }
-        const childId = `CH24${sequence.toString().padStart(3, '0')}`;
-        
-        // Calculate age
-        const dob = new Date(childData.dateOfBirth);
-        const today = new Date();
-        let age = today.getFullYear() - dob.getFullYear();
-        const monthDiff = today.getMonth() - dob.getMonth();
-        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
-            age--;
-        }
-        
+        const childId = await Child.getNextChildId();
+
         // Create new child
-        const newChild = {
-            id: (children.length + 1).toString(),
+        const newChild = await Child.create({
+            ...childData,
             childId,
-            name: childData.name,
-            dateOfBirth: childData.dateOfBirth,
-            age,
-            gender: childData.gender,
-            background: childData.background,
-            medicalHistory: childData.medicalHistory || 'None',
-            allergies: childData.allergies || 'None',
-            bloodGroup: childData.bloodGroup || null,
-            status: 'active',
-            dateOfAdmission: new Date().toISOString().split('T')[0],
-            assignedStaff: childData.assignedStaff || null,
-            guardianInfo: childData.guardianInfo || null,
-            createdAt: new Date().toISOString()
-        };
-        
-        children.push(newChild);
-        
+            createdBy: req.user.id
+        });
+
         res.status(201).json({
             success: true,
             message: 'Child created successfully',
             child: newChild
         });
-        
+
     } catch (error) {
         console.error('Create child error:', error);
         res.status(500).json({
             success: false,
-            message: 'Server error creating child'
+            message: error.message || 'Server error creating child',
+            stack: error.stack,
+            errorObj: error
         });
     }
 });
 
 // Update child (admin only)
-router.put('/:id', authenticate, authorize('admin'), (req, res) => {
+router.put('/:id', authenticate, authorize('admin'), async (req, res) => {
     try {
-        const childId = req.params.id;
-        const updateData = req.body;
-        
-        const childIndex = children.findIndex(c => c.id === childId || c.childId === childId);
-        
-        if (childIndex === -1) {
+        let child = await Child.findOne({
+            $or: [{ _id: req.params.id }, { childId: req.params.id }]
+        });
+
+        if (!child) {
             return res.status(404).json({
                 success: false,
                 message: 'Child not found'
             });
         }
-        
-        // Update child data
-        children[childIndex] = {
-            ...children[childIndex],
-            ...updateData,
-            // Don't allow changing ID
-            id: children[childIndex].id,
-            childId: children[childIndex].childId
-        };
-        
-        // Recalculate age if date of birth changed
-        if (updateData.dateOfBirth) {
-            const dob = new Date(updateData.dateOfBirth);
-            const today = new Date();
-            let age = today.getFullYear() - dob.getFullYear();
-            const monthDiff = today.getMonth() - dob.getMonth();
-            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
-                age--;
-            }
-            children[childIndex].age = age;
+
+        // Update fields
+        const { dateOfBirth, ...otherUpdates } = req.body;
+
+        // If dateOfBirth is updated, the pre-save hook will handle age calculation
+        // But we need to set it explicitly if it's in the body
+        if (dateOfBirth) {
+            child.dateOfBirth = dateOfBirth;
         }
-        
+
+        // Apply other updates
+        Object.keys(otherUpdates).forEach(key => {
+            // Prevent updating immutable fields if necessary
+            if (key !== 'childId' && key !== '_id' && key !== 'createdAt') {
+                child[key] = otherUpdates[key];
+            }
+        });
+
+        await child.save();
+
         res.json({
             success: true,
             message: 'Child updated successfully',
-            child: children[childIndex]
+            child
         });
-        
+
     } catch (error) {
         console.error('Update child error:', error);
         res.status(500).json({
@@ -312,67 +298,35 @@ router.put('/:id', authenticate, authorize('admin'), (req, res) => {
 });
 
 // Delete child (admin only - soft delete)
-router.delete('/:id', authenticate, authorize('admin'), (req, res) => {
+router.delete('/:id', authenticate, authorize('admin'), async (req, res) => {
     try {
-        const childId = req.params.id;
-        
-        const childIndex = children.findIndex(c => c.id === childId || c.childId === childId);
-        
-        if (childIndex === -1) {
+        const child = await Child.findOne({
+            $or: [{ _id: req.params.id }, { childId: req.params.id }]
+        });
+
+        if (!child) {
             return res.status(404).json({
                 success: false,
                 message: 'Child not found'
             });
         }
-        
+
         // Soft delete - change status to discharged
-        children[childIndex].status = 'discharged';
-        children[childIndex].dischargeDate = new Date().toISOString().split('T')[0];
-        
+        child.status = 'discharged';
+        child.dischargeDate = new Date();
+        await child.save();
+
         res.json({
             success: true,
             message: 'Child discharged successfully',
-            child: children[childIndex]
+            child
         });
-        
+
     } catch (error) {
         console.error('Delete child error:', error);
         res.status(500).json({
             success: false,
             message: 'Server error deleting child'
-        });
-    }
-});
-
-// Get child statistics
-router.get('/stats/overview', authenticate, (req, res) => {
-    try {
-        const stats = {
-            total: children.length,
-            active: children.filter(c => c.status === 'active').length,
-            discharged: children.filter(c => c.status === 'discharged').length,
-            gender: {
-                male: children.filter(c => c.gender === 'male').length,
-                female: children.filter(c => c.gender === 'female').length
-            },
-            ageGroups: {
-                '0-5': children.filter(c => c.age >= 0 && c.age <= 5).length,
-                '6-10': children.filter(c => c.age >= 6 && c.age <= 10).length,
-                '11-15': children.filter(c => c.age >= 11 && c.age <= 15).length,
-                '16-18': children.filter(c => c.age >= 16 && c.age <= 18).length
-            }
-        };
-        
-        res.json({
-            success: true,
-            stats
-        });
-        
-    } catch (error) {
-        console.error('Stats error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Server error getting statistics'
         });
     }
 });
