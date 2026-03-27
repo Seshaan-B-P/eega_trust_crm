@@ -1,68 +1,92 @@
 const Staff = require('../models/Staff');
 const User = require('../models/User');
-// Add to staffController.js
+const mongoose = require('mongoose');
 const emailService = require('../services/emailService');
 
-// Update createStaff function
+// @desc    Create new staff
+// @route   POST /api/staff
+// @access  Admin
 exports.createStaff = async (req, res) => {
     try {
-        const session = await mongoose.startSession();
-        session.startTransaction();
+        const {
+            name, email, password, phone, designation, department,
+            salary, shift, joinDate, address, qualification,
+            experience, maxChildrenCapacity, emergencyContact
+        } = req.body;
 
-        try {
-            const { userData, staffData } = req.body;
-
-            // Generate plain password for email
-            const plainPassword = userData.password;
-
-            // 1. Create user account
-            const user = new User({
-                ...userData,
-                role: 'staff',
-                isActive: true
+        // Validation
+        if (!name || !email || !designation) {
+            return res.status(400).json({
+                success: false,
+                message: 'Name, email, and designation are required'
             });
-            await user.save({ session });
-
-            // 2. Create staff profile
-            const staff = new Staff({
-                ...staffData,
-                user: user._id,
-                createdBy: req.user.id
-            });
-            await staff.save({ session });
-
-            // 3. Link staff profile to user
-            user.staffProfile = staff._id;
-            await user.save({ session });
-
-            await session.commitTransaction();
-            session.endSession();
-
-            // Send welcome email
-            try {
-                await emailService.sendWelcomeEmail(user, plainPassword);
-            } catch (emailError) {
-                console.error('Welcome email failed:', emailError);
-                // Don't fail the request if email fails
-            }
-
-            const populatedStaff = await Staff.findById(staff._id)
-                .populate('user', 'name email phone');
-
-            res.status(201).json({
-                success: true,
-                message: 'Staff member created successfully',
-                data: populatedStaff
-            });
-
-        } catch (error) {
-            await session.abortTransaction();
-            session.endSession();
-            throw error;
         }
 
+        // Check if user exists
+        let userExists = await User.findOne({ email });
+        if (userExists) {
+            return res.status(400).json({
+                success: false,
+                message: 'User already exists'
+            });
+        }
+
+        // 1. Create User account
+        const user = new User({
+            name,
+            email,
+            password,
+            role: 'staff',
+            phone,
+            address,
+            isActive: true
+        });
+        await user.save();
+
+        // 2. Generate Employee ID
+        const employeeId = await Staff.generateEmployeeId();
+
+        // 3. Create Staff profile
+        const staff = new Staff({
+            user: user._id,
+            employeeId,
+            designation,
+            department,
+            salary,
+            shift,
+            joinDate: joinDate || new Date(),
+            qualification,
+            experience,
+            maxChildrenCapacity: maxChildrenCapacity || 10,
+            emergencyContact,
+            createdBy: req.user.id
+        });
+        await staff.save();
+
+        // 4. Link staff profile to user
+        user.staffProfile = staff._id;
+        await user.save();
+
+        // Send welcome email (async, don't block response)
+        emailService.sendWelcomeEmail(user, password).catch(err => {
+            console.error('Welcome email failed:', err);
+        });
+
+        const populatedStaff = await Staff.findById(staff._id)
+            .populate('user', 'name email phone role isActive');
+
+        res.status(201).json({
+            success: true,
+            message: 'Staff member created successfully',
+            data: populatedStaff
+        });
+
     } catch (error) {
-        // ... error handling
+        console.error('Error creating staff:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message || 'Server error'
+        });
     }
 };
 // @desc    Get staff statistics
@@ -72,15 +96,15 @@ exports.getStaffStats = async (req, res) => {
     try {
         const stats = {
             total: await Staff.countDocuments(),
-            active: await Staff.countDocuments({ status: 'active' }),
-            onLeave: await Staff.countDocuments({ status: 'on_leave' }),
-            departments: {
-                caretaker: await Staff.countDocuments({ department: 'caretaker' }),
-                medical: await Staff.countDocuments({ department: 'medical' }),
-                admin: await Staff.countDocuments({ department: 'admin' }),
-                kitchen: await Staff.countDocuments({ department: 'kitchen' })
-            }
+            active: await Staff.countDocuments({ isActive: true }),
+            inactive: await Staff.countDocuments({ isActive: false }),
+            departments: {}
         };
+
+        const depts = ['caretaker', 'teacher', 'cook', 'doctor', 'administrator', 'security', 'other'];
+        for (const dept of depts) {
+            stats.departments[dept] = await Staff.countDocuments({ department: dept });
+        }
 
         res.json({
             success: true,
@@ -100,14 +124,48 @@ exports.getStaffStats = async (req, res) => {
 // @access  Admin
 exports.getAllStaff = async (req, res) => {
     try {
-        const staff = await Staff.find()
-            .populate('user', 'name email phone role isActive profileImage')
+        const { search, department, isActive, page = 1, limit = 10 } = req.query;
+        let query = {};
+
+        // Filters
+        if (department) query.department = department;
+        if (isActive === 'true') query.isActive = true;
+        if (isActive === 'false') query.isActive = false;
+
+        // Populate and search logic
+        const staffList = await Staff.find(query)
+            .populate({
+                path: 'user',
+                match: search ? { name: { $regex: search, $options: 'i' } } : {},
+                select: 'name email phone role isActive profileImage'
+            })
             .sort({ createdAt: -1 });
+
+        // If searching by name, filter out staff where user populate returned null
+        let filteredStaff = staffList.filter(s => s.user);
+
+        // Manual Pagination after filtering by user name (if searching)
+        const pageNum = parseInt(page);
+        const limitNum = parseInt(limit);
+        const total = filteredStaff.length;
+        const totalPages = Math.ceil(total / limitNum);
+        const pagedData = filteredStaff.slice((pageNum - 1) * limitNum, pageNum * limitNum);
+
+        // Get global stats for cards
+        const stats = {
+            total: await Staff.countDocuments(),
+            active: await Staff.countDocuments({ isActive: true }),
+            inactive: await Staff.countDocuments({ isActive: false })
+        };
 
         res.json({
             success: true,
-            count: staff.length,
-            data: staff
+            count: pagedData.length,
+            total,
+            page: pageNum,
+            totalPages,
+            stats,
+            data: pagedData
         });
     } catch (error) {
         console.error('Error getting all staff:', error);
@@ -175,78 +233,13 @@ exports.getStaffById = async (req, res) => {
     }
 };
 
-// @desc    Create new staff
-// @route   POST /api/staff
-// @access  Admin
-exports.createStaff = async (req, res) => {
-    try {
-        const { name, email, password, phone, designation, department, salary, shift, joinDate, address } = req.body;
-
-        // Validation
-        if (!name || !email || !designation) {
-            return res.status(400).json({
-                success: false,
-                message: 'Name, email, and designation are required'
-            });
-        }
-
-        // Check if user exists
-        let user = await User.findOne({ email });
-        if (user) {
-            return res.status(400).json({
-                success: false,
-                message: 'User already exists'
-            });
-        }
-
-        // Create User first
-        user = await User.create({
-            name,
-            email,
-            password,
-            role: 'staff',
-            phone,
-            address
-        });
-
-        // Generate Employee ID
-        const employeeId = await Staff.generateEmployeeId();
-
-        // Create Staff profile
-        const staff = await Staff.create({
-            user: user._id,
-            employeeId,
-            designation,
-            department,
-            salary,
-            shift,
-            joinDate,
-            createdBy: req.user.id
-        });
-
-        // Link staff profile to user
-        user.staffProfile = staff._id;
-        await user.save();
-
-        res.status(201).json({
-            success: true,
-            data: staff
-        });
-    } catch (error) {
-        console.error('Error creating staff:', error);
-        res.status(500).json({
-            success: false,
-            message: error.message || 'Server error'
-        });
-    }
-};
 
 // @desc    Update staff
 // @route   PUT /api/staff/:id
 // @access  Admin
 exports.updateStaff = async (req, res) => {
     try {
-        let staff = await Staff.findById(req.params.id);
+        const staff = await Staff.findById(req.params.id);
 
         if (!staff) {
             return res.status(404).json({
@@ -255,35 +248,60 @@ exports.updateStaff = async (req, res) => {
             });
         }
 
-        const { designation, department, salary, shift, status, maxChildrenCapacity } = req.body;
+        const {
+            name, email, phone, address, isActive,
+            designation, department, salary, shift, status,
+            maxChildrenCapacity, qualification, experience,
+            workingDays, emergencyContact
+        } = req.body;
 
-        // Update fields
+        // 1. Update User Details if provided
+        if (staff.user) {
+            const user = await User.findById(staff.user);
+            if (user) {
+                if (name) user.name = name;
+                if (email) user.email = email;
+                if (phone) user.phone = phone;
+                if (address) user.address = address;
+                if (typeof isActive !== 'undefined') user.isActive = isActive;
+                await user.save();
+            }
+        }
+
+        // 2. Update Staff profile fields
         if (designation) staff.designation = designation;
         if (department) staff.department = department;
-        if (salary) staff.salary = salary;
+        if (salary || salary === 0) staff.salary = salary;
         if (shift) staff.shift = shift;
         if (status) staff.status = status;
         if (maxChildrenCapacity) staff.maxChildrenCapacity = maxChildrenCapacity;
+        if (qualification) staff.qualification = qualification;
+        if (typeof experience !== 'undefined') staff.experience = experience;
+        if (workingDays) staff.workingDays = workingDays;
+        if (emergencyContact) staff.emergencyContact = emergencyContact;
 
         await staff.save();
 
+        const updatedStaff = await Staff.findById(staff._id).populate('user', '-password');
+
         res.json({
             success: true,
-            data: staff
+            message: 'Staff updated successfully',
+            data: updatedStaff
         });
     } catch (error) {
         console.error('Error updating staff:', error);
         res.status(500).json({
             success: false,
-            message: 'Server error'
+            message: error.message || 'Server error'
         });
     }
 };
 
-// @desc    Deactivate staff
+// @desc    Delete staff (Hard Delete)
 // @route   DELETE /api/staff/:id
 // @access  Admin
-exports.deactivateStaff = async (req, res) => {
+exports.deleteStaff = async (req, res) => {
     try {
         // Find staff
         const staff = await Staff.findById(req.params.id);
@@ -294,23 +312,20 @@ exports.deactivateStaff = async (req, res) => {
             });
         }
 
-        // Deactivate user account
-        const user = await User.findById(staff.user);
-        if (user) {
-            user.isActive = false;
-            await user.save();
+        // Delete user account
+        if (staff.user) {
+            await User.findByIdAndDelete(staff.user);
         }
 
-        // Update staff status
-        staff.status = 'inactive';
-        await staff.save();
+        // Delete staff profile
+        await Staff.findByIdAndDelete(req.params.id);
 
         res.json({
             success: true,
-            message: 'Staff deactivated successfully'
+            message: 'Staff and associated user account deleted successfully'
         });
     } catch (error) {
-        console.error('Error deactivating staff:', error);
+        console.error('Error deleting staff:', error);
         res.status(500).json({
             success: false,
             message: 'Server error'

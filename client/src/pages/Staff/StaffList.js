@@ -4,15 +4,17 @@ import { toast } from 'react-hot-toast';
 import {
     FiUsers, FiSearch, FiPlus, FiEdit, FiEye,
     FiFilter, FiDownload, FiTrash2, FiRefreshCw,
-    FiUserCheck, FiUserX, FiBriefcase
+    FiUserCheck, FiUserX, FiBriefcase, FiAward, FiClock, FiActivity
 } from 'react-icons/fi';
 import api from '../../utils/api';
 import LoadingSpinner from '../../components/LoadingSpinner';
-
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const StaffList = () => {
     const { user } = useAuth();
+    const { theme } = useTheme();
     const [staff, setStaff] = useState([]);
     const [loading, setLoading] = useState(true);
     const [stats, setStats] = useState({
@@ -38,6 +40,26 @@ const StaffList = () => {
         'administrator', 'security', 'other'
     ];
 
+    const departmentColors = {
+        caretaker: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20 dark:bg-emerald-500/20 dark:text-emerald-400',
+        teacher: 'bg-primary-500/10 text-primary-600 border-primary-500/20 dark:bg-primary-500/20 dark:text-primary-400',
+        cook: 'bg-amber-500/10 text-amber-600 border-amber-500/20 dark:bg-amber-500/20 dark:text-amber-400',
+        doctor: 'bg-rose-500/10 text-rose-600 border-rose-500/20 dark:bg-rose-500/20 dark:text-rose-400',
+        administrator: 'bg-purple-500/10 text-purple-600 border-purple-500/20 dark:bg-purple-500/20 dark:text-purple-400',
+        security: 'bg-slate-500/10 text-slate-600 border-slate-500/20 dark:bg-slate-500/20 dark:text-slate-400',
+        other: 'bg-indigo-500/10 text-indigo-600 border-indigo-500/20 dark:bg-indigo-500/20 dark:text-indigo-400'
+    };
+
+    const departmentHexColors = {
+        caretaker: '#10b981',
+        teacher: '#6366f1',
+        cook: '#f59e0b',
+        doctor: '#f43f5e',
+        administrator: '#a855f7',
+        security: '#64748b',
+        other: '#4f46e5'
+    };
+
     const fetchStaff = async () => {
         try {
             setLoading(true);
@@ -50,7 +72,6 @@ const StaffList = () => {
             }).toString();
 
             const response = await api.get(`/staff?${params}`);
-            console.log('Staff Data:', response.data);
             setStaff(response.data.data || []);
             setStats(response.data.stats || stats);
             setPagination({
@@ -59,8 +80,7 @@ const StaffList = () => {
                 totalPages: response.data.totalPages
             });
         } catch (error) {
-            toast.error('Error fetching staff');
-            console.error('Error:', error);
+            toast.error('Error fetching staff metrics');
         } finally {
             setLoading(false);
         }
@@ -70,40 +90,55 @@ const StaffList = () => {
         fetchStaff();
     }, [filters, pagination.page]);
 
-    const handleDeactivate = async (id, name) => {
-        if (window.confirm(`Are you sure you want to deactivate ${name}?`)) {
-            try {
-                await api.delete(`/staff/${id}`);
-                toast.success('Staff deactivated successfully');
-                fetchStaff();
-            } catch (error) {
-                toast.error('Error deactivating staff');
+    const handleDelete = async (id, name) => {
+        toast((t) => (
+            <div className="flex flex-col gap-4">
+                <p className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight">Archive personnel <b>{name}</b>?</p>
+                <div className="flex gap-2">
+                    <button 
+                        onClick={async () => {
+                            toast.dismiss(t.id);
+                            try {
+                                await api.delete(`/staff/${id}`);
+                                toast.success('Personnel successfully archived');
+                                fetchStaff();
+                            } catch (error) {
+                                toast.error('Archival failed');
+                            }
+                        }}
+                        className="px-4 py-2 bg-rose-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest"
+                    >
+                        Confirm
+                    </button>
+                    <button onClick={() => toast.dismiss(t.id)} className="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-widest">Cancel</button>
+                </div>
+            </div>
+        ), { duration: 5000 });
+    };
+
+    const handleExport = async () => {
+        toast.promise(
+            import('../../utils/exportUtils').then(async (module) => {
+                const response = await api.get('/staff');
+                const staffToExport = response.data.data.map(staff => ({
+                    'Employee ID': staff.employeeId || 'N/A',
+                    'Name': staff.name,
+                    'Email': staff.email,
+                    'Phone': staff.phone,
+                    'Designation': staff.designation,
+                    'Department': staff.department,
+                    'Status': staff.status,
+                    'Join Date': new Date(staff.joinDate).toLocaleDateString(),
+                    'Salary': staff.salary
+                }));
+                module.exportToExcel(staffToExport, `Staff_Ledger_${new Date().toISOString().split('T')[0]}`, 'Staff');
+            }),
+            {
+                loading: 'Compiling personnel dossier...',
+                success: 'Personnel ledger exported',
+                error: 'Export failed'
             }
-        }
-    };
-
-    const departmentColors = {
-        caretaker: 'bg-green-100 text-green-800',
-        teacher: 'bg-blue-100 text-blue-800',
-        cook: 'bg-yellow-100 text-yellow-800',
-        doctor: 'bg-red-100 text-red-800',
-        administrator: 'bg-purple-100 text-purple-800',
-        security: 'bg-gray-100 text-gray-800',
-        other: 'bg-indigo-100 text-indigo-800'
-    };
-
-    const departmentHexColors = {
-        caretaker: '#22c55e', // green-500
-        teacher: '#3b82f6',   // blue-500
-        cook: '#eab308',      // yellow-500
-        doctor: '#ef4444',    // red-500
-        administrator: '#a855f7', // purple-500
-        security: '#6b7280',  // gray-500
-        other: '#6366f1'      // indigo-500
-    };
-
-    const handleExport = () => {
-        toast.success('Export feature coming soon!');
+        );
     };
 
     const handleClearFilters = () => {
@@ -116,397 +151,297 @@ const StaffList = () => {
     };
 
     const capitalize = (str) => {
-        return str.charAt(0).toUpperCase() + str.slice(1);
+        return str?.charAt(0).toUpperCase() + str?.slice(1);
+    };
+
+    const containerVariants = {
+        hidden: { opacity: 0 },
+        visible: {
+            opacity: 1,
+            transition: { staggerChildren: 0.1 }
+        }
+    };
+
+    const itemVariants = {
+        hidden: { opacity: 0, y: 20 },
+        visible: { opacity: 1, y: 0 }
     };
 
     return (
-        <div className="p-6">
-            {/* Header */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-                <div>
-                    <h1 className="text-3xl font-bold text-gray-800">Staff Management</h1>
-                    <p className="text-gray-600">Manage all staff members in the orphanage</p>
-                </div>
-                <div className="flex items-center space-x-4">
-                    <button
+        <motion.div 
+            initial="hidden"
+            animate="visible"
+            variants={containerVariants}
+            className="p-8 space-y-10 min-h-screen"
+        >
+            {/* Custom Header */}
+            <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <h2 className="text-2xl font-black text-slate-800 dark:text-white uppercase tracking-tight">Team List</h2>
+                <div className="flex items-center gap-3">
+                    <button 
                         onClick={fetchStaff}
-                        className="flex items-center border border-gray-300 px-4 py-2 rounded-lg hover:bg-gray-50 transition"
-                        title="Refresh"
+                        className="p-3 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-primary-600 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-sm hover:shadow-md transition-all active:scale-95"
                     >
-                        <FiRefreshCw className="mr-2" />
-                        Refresh
+                        <FiRefreshCw className={loading ? 'animate-spin' : ''} />
                     </button>
-                    {user?.role === 'admin' && (
-                        <Link
-                            to="/staff/add"
-                            className="flex items-center bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
-                        >
-                            <FiPlus className="mr-2" />
-                            Add New Staff
-                        </Link>
-                    )}
                     <button
                         onClick={handleExport}
-                        className="flex items-center border border-gray-300 px-4 py-2 rounded-lg hover:bg-gray-50 transition"
+                        className="flex items-center px-5 py-3 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-sm hover:shadow-md font-bold text-xs uppercase tracking-widest transition-all"
                     >
                         <FiDownload className="mr-2" />
                         Export
                     </button>
-                </div>
-            </div>
-
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-6 text-white">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-sm opacity-90">Total Staff</p>
-                            <p className="text-3xl font-bold mt-2">{stats.total || 0}</p>
-                        </div>
-                        <FiUsers className="h-10 w-10 opacity-80" />
-                    </div>
-                </div>
-                <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-xl p-6 text-white">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-sm opacity-90">Active Staff</p>
-                            <p className="text-3xl font-bold mt-2">{stats.active || 0}</p>
-                        </div>
-                        <FiUserCheck className="h-10 w-10 opacity-80" />
-                    </div>
-                </div>
-                <div className="bg-gradient-to-r from-gray-500 to-gray-600 rounded-xl p-6 text-white">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-sm opacity-90">Inactive Staff</p>
-                            <p className="text-3xl font-bold mt-2">{stats.inactive || 0}</p>
-                        </div>
-                        <FiUserX className="h-10 w-10 opacity-80" />
-                    </div>
-                </div>
-            </div>
-
-            {/* Filters */}
-            <div className="bg-white rounded-xl shadow-md p-6 mb-6">
-                <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-gray-800">Filters</h3>
-                    <button
-                        onClick={handleClearFilters}
-                        className="text-sm text-blue-600 hover:text-blue-800"
-                    >
-                        Clear All
-                    </button>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Search
-                        </label>
-                        <div className="relative">
-                            <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                            <input
-                                type="text"
-                                placeholder="Name, Employee ID, Designation..."
-                                value={filters.search}
-                                onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-                                className="pl-10 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                            />
-                        </div>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Department
-                        </label>
-                        <select
-                            value={filters.department}
-                            onChange={(e) => setFilters({ ...filters, department: e.target.value })}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                        >
-                            <option value="">All Departments</option>
-                            {departments.map(dept => (
-                                <option key={dept} value={dept}>{capitalize(dept)}</option>
-                            ))}
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Status
-                        </label>
-                        <select
-                            value={filters.isActive}
-                            onChange={(e) => setFilters({ ...filters, isActive: e.target.value })}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                        >
-                            <option value="">All Status</option>
-                            <option value="true">Active</option>
-                            <option value="false">Inactive</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Designation
-                        </label>
-                        <input
-                            type="text"
-                            placeholder="Designation..."
-                            value={filters.designation}
-                            onChange={(e) => setFilters({ ...filters, designation: e.target.value })}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                        />
-                    </div>
-                </div>
-            </div>
-
-            {/* Staff Table */}
-            <div className="bg-white rounded-xl shadow-md overflow-hidden">
-                {loading ? (
-                    <LoadingSpinner message="Loading staff..." />
-                ) : staff.length === 0 ? (
-                    <div className="p-8 text-center">
-                        <FiUsers className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                        <h3 className="text-lg font-medium text-gray-900 mb-2">No staff members found</h3>
-                        <p className="text-gray-500 mb-4">
-                            {Object.values(filters).some(f => f !== '')
-                                ? 'Try changing your filters'
-                                : 'Add your first staff member to get started'}
-                        </p>
+                    {user?.role === 'admin' && (
                         <Link
                             to="/staff/add"
-                            className={`inline-flex items-center bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 ${user?.role !== 'admin' ? 'hidden' : ''}`}
+                            className="flex items-center bg-primary-600 hover:bg-primary-700 text-white px-6 py-3 rounded-2xl shadow-lg shadow-primary-500/25 font-black text-xs uppercase tracking-widest transition-all hover:-translate-y-1 active:scale-95"
                         >
-                            <FiPlus className="mr-2" />
-                            Add New Staff
+                            <FiPlus className="mr-2 stroke-[3px]" />
+                            Onboard Staff
                         </Link>
+                    )}
+                </div>
+            </header>
+
+            {/* Premium Stats Grid */}
+            <motion.div variants={containerVariants} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[
+                    { label: 'Total Staff', value: stats.total || 0, icon: <FiUsers />, color: 'from-blue-600 to-indigo-700', shadow: 'shadow-blue-500/20' },
+                    { label: 'Active Staff', value: stats.active || 0, icon: <FiUserCheck />, color: 'from-emerald-500 to-teal-600', shadow: 'shadow-emerald-500/20' },
+                    { label: 'Inactive Staff', value: stats.inactive || 0, icon: <FiUserX />, color: 'from-slate-600 to-slate-800', shadow: 'shadow-slate-500/20' },
+                ].map((stat, idx) => (
+                    <motion.div key={idx} variants={itemVariants} className={`relative p-8 rounded-[2.5rem] bg-gradient-to-br ${stat.color} shadow-lg ${stat.shadow} overflow-hidden group`}>
+                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-125 transition-transform duration-500">
+                             {React.cloneElement(stat.icon, { size: 100 })}
+                        </div>
+                        <div className="relative z-10">
+                            <div className="p-4 bg-white/20 rounded-2xl w-fit backdrop-blur-md mb-6 text-white">
+                                {stat.icon}
+                            </div>
+                            <p className="text-white/70 text-[10px] font-black uppercase tracking-widest">{stat.label}</p>
+                            <h3 className="text-3xl font-black text-white mt-1 break-words">{stat.value}</h3>
+                        </div>
+                    </motion.div>
+                ))}
+            </motion.div>
+
+            {/* Advanced Filters */}
+            <motion.div variants={itemVariants} className="card !rounded-[2.5rem] p-8 border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
+                <div className="flex flex-col gap-6">
+                    <div className="flex flex-col lg:flex-row gap-4">
+                        <div className="flex-1 relative group">
+                            <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary-500 transition-colors" />
+                            <input
+                                type="text"
+                                placeholder="Search by name, ID, or designation..."
+                                value={filters.search}
+                                onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                                className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-[1.25rem] focus:ring-4 focus:ring-primary-500/5 focus:border-primary-500 transition-all font-medium text-slate-800 dark:text-white"
+                            />
+                        </div>
+                        <div className="flex flex-wrap gap-3">
+                            <select
+                                value={filters.department}
+                                onChange={(e) => setFilters({ ...filters, department: e.target.value })}
+                                className="px-6 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-[1.25rem] focus:ring-4 focus:ring-primary-500/5 focus:border-primary-500 transition-all font-bold text-xs uppercase tracking-widest text-slate-600 dark:text-slate-300 min-w-[180px]"
+                            >
+                                <option value="">All Sectors</option>
+                                {departments.map(dept => (
+                                    <option key={dept} value={dept}>{capitalize(dept)}</option>
+                                ))}
+                            </select>
+                            <select
+                                value={filters.isActive}
+                                onChange={(e) => setFilters({ ...filters, isActive: e.target.value })}
+                                className="px-6 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-[1.25rem] focus:ring-4 focus:ring-primary-500/5 focus:border-primary-500 transition-all font-bold text-xs uppercase tracking-widest text-slate-600 dark:text-slate-300 min-w-[160px]"
+                            >
+                                <option value="">Status State</option>
+                                <option value="true">Active Only</option>
+                                <option value="false">Inactive Only</option>
+                            </select>
+                            <button 
+                                onClick={handleClearFilters}
+                                className="px-6 py-4 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-600 dark:text-slate-300 rounded-[1.25rem] font-bold text-xs uppercase tracking-widest transition-all"
+                            >
+                                Reset
+                            </button>
+                        </div>
                     </div>
-                ) : (
-                    <>
-                        <div className="overflow-x-auto">
-                            <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-gray-50">
-                                    <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Staff Details
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Department & Designation
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Assigned Children
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Status
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Joining Date
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Actions
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
+                </div>
+            </motion.div>
+
+            {/* Personnel Registry Table */}
+            <motion.div variants={itemVariants} className="card !rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden bg-white dark:bg-slate-900">
+                <div className="overflow-x-auto">
+                    {loading ? (
+                        <div className="py-24"><LoadingSpinner message="Reconciling Identity Matrix..." /></div>
+                    ) : (
+                        <table className="w-full border-collapse">
+                            <thead>
+                                <tr className="bg-slate-50/50 dark:bg-slate-900/50 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-800">
+                                    <th className="px-8 py-6 text-left">Staff Profile & ID</th>
+                                    <th className="px-8 py-6 text-left">Specialization</th>
+                                    <th className="px-8 py-6 text-left">Responsibility Load</th>
+                                    <th className="px-8 py-6 text-left">Security Clearance</th>
+                                    <th className="px-8 py-6 text-left">Tenure</th>
+                                    <th className="px-8 py-6 text-right">Utility</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                <AnimatePresence mode="popLayout">
                                     {staff.map((staffMember) => (
-                                        <tr key={staffMember._id} className="hover:bg-gray-50 transition-colors">
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center">
-                                                    <div className="h-12 w-12 bg-gradient-to-r from-blue-100 to-blue-200 rounded-full flex items-center justify-center mr-4">
-                                                        {staffMember.user?.profileImage ? (
-                                                            <img
-                                                                src={staffMember.user.profileImage}
-                                                                alt={staffMember.user.name}
-                                                                className="h-12 w-12 rounded-full object-cover"
-                                                            />
-                                                        ) : (
-                                                            <span className="font-semibold text-blue-600 text-lg">
-                                                                {staffMember.user?.name?.charAt(0)}
-                                                            </span>
+                                        <motion.tr 
+                                            key={staffMember._id}
+                                            layout
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: 1 }}
+                                            exit={{ opacity: 0 }}
+                                            className="group hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-all duration-300"
+                                        >
+                                            <td className="px-8 py-6">
+                                                <div className="flex items-center space-x-4">
+                                                    <div className="relative">
+                                                        <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-primary-500 to-indigo-600 flex items-center justify-center text-white border border-white dark:border-slate-700 shadow-sm overflow-hidden">
+                                                            {staffMember.user?.profileImage ? (
+                                                                <img src={staffMember.user.profileImage} alt="P" className="h-full w-full object-cover" />
+                                                            ) : <span className="font-black text-lg">{staffMember.user?.name?.charAt(0)}</span>}
+                                                        </div>
+                                                        {staffMember.isActive && (
+                                                            <span className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-500 border-2 border-white dark:border-slate-900 rounded-full"></span>
                                                         )}
                                                     </div>
                                                     <div>
-                                                        <p className="font-medium text-gray-900">
-                                                            {staffMember.user?.name}
-                                                        </p>
-                                                        <div className="text-sm text-gray-500 mt-1">
-                                                            <div className="flex items-center">
-                                                                <span className="font-mono font-semibold mr-3">
-                                                                    {staffMember.employeeId}
-                                                                </span>
-                                                                <span>{staffMember.user?.email}</span>
-                                                            </div>
-                                                        </div>
-                                                        <div className="text-sm text-gray-500">
-                                                            {staffMember.user?.phone}
+                                                        <p className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight">{staffMember.user?.name}</p>
+                                                        <div className="flex items-center text-[10px] font-bold text-slate-400 dark:text-slate-500 mt-1 uppercase tracking-widest">
+                                                            <span className="font-black text-primary-600 mr-2">{staffMember.employeeId}</span>
+                                                            <span className="truncate max-w-[120px]">{staffMember.user?.email}</span>
                                                         </div>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4">
-                                                <div className="space-y-2">
-                                                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${departmentColors[staffMember.department] || 'bg-gray-100'}`}>
+                                            <td className="px-8 py-6">
+                                                <div className="flex flex-col space-y-2">
+                                                    <span className={`inline-flex items-center px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-tighter border transition-all w-fit ${departmentColors[staffMember.department] || 'bg-slate-100'}`}>
                                                         {capitalize(staffMember.department)}
                                                     </span>
-                                                    <p className="text-sm font-medium text-gray-800">
-                                                        {staffMember.designation}
-                                                    </p>
-                                                    <p className="text-xs text-gray-500">
-                                                        Experience: {staffMember.experience || 0} years
-                                                    </p>
+                                                    <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">{staffMember.designation}</p>
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center">
-                                                    <div className="mr-4">
-                                                        <p className="text-2xl font-bold text-blue-600">
-                                                            {staffMember.user?.assignedChildren?.length || 0}
-                                                        </p>
-                                                        <p className="text-xs text-gray-500">Assigned</p>
+                                            <td className="px-8 py-6">
+                                                <div className="flex items-center space-x-4">
+                                                    <div className="text-center">
+                                                        <p className="text-lg font-black text-primary-600 dark:text-primary-400 tracking-tighter leading-none">{staffMember.user?.assignedChildren?.length || 0}</p>
+                                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">Units</p>
                                                     </div>
-                                                    <div>
-                                                        <p className="text-sm font-medium text-gray-800">
-                                                            Capacity: {staffMember.assignedChildrenCount || 0}/{staffMember.maxChildrenCapacity || 0}
-                                                        </p>
-                                                        <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
-                                                            <div
-                                                                className="bg-green-500 h-2 rounded-full"
-                                                                style={{
-                                                                    width: `${Math.min(((staffMember.assignedChildrenCount || 0) / (staffMember.maxChildrenCapacity || 1)) * 100, 100)}%`
-                                                                }}
-                                                            ></div>
-                                                        </div>
+                                                    <div className="flex-1 bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden min-w-[80px]">
+                                                        <motion.div 
+                                                            initial={{ width: 0 }}
+                                                            animate={{ width: `${Math.min(((staffMember.assignedChildrenCount || 0) / (staffMember.maxChildrenCapacity || 1)) * 100, 100)}%` }}
+                                                            transition={{ duration: 1.5, ease: 'circOut' }}
+                                                            className="h-full bg-emerald-500 rounded-full"
+                                                        />
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex flex-col space-y-2">
-                                                    <span className={`px-3 py-1.5 rounded-full text-sm font-medium border ${staffMember.isActive ? 'bg-green-100 text-green-800 border-green-200' : 'bg-gray-100 text-gray-800 border-gray-200'}`}>
-                                                        {staffMember.isActive ? 'Active' : 'Inactive'}
-                                                    </span>
-                                                    {staffMember.performance && (
-                                                        <div className="flex items-center">
-                                                            <div className="flex items-center">
-                                                                {[1, 2, 3, 4, 5].map(star => (
-                                                                    <svg
-                                                                        key={star}
-                                                                        className={`h-4 w-4 ${star <= staffMember.performance.rating ? 'text-yellow-400' : 'text-gray-300'}`}
-                                                                        fill="currentColor"
-                                                                        viewBox="0 0 20 20"
-                                                                    >
-                                                                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                                                                    </svg>
-                                                                ))}
-                                                            </div>
-                                                            <span className="text-xs text-gray-500 ml-1">
-                                                                {staffMember.performance.rating}/5
-                                                            </span>
-                                                        </div>
-                                                    )}
+                                            <td className="px-8 py-6 text-sm">
+                                                <span className={`inline-flex px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${staffMember.isActive ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
+                                                    {staffMember.isActive ? 'Verified Active' : 'Suspended'}
+                                                </span>
+                                            </td>
+                                            <td className="px-8 py-6">
+                                                <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest italic">{new Date(staffMember.joiningDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                                                <div className="flex items-center mt-1 text-[9px] text-slate-400 font-bold uppercase tracking-widest">
+                                                    <FiClock className="mr-1" />
+                                                    {staffMember.experience || 0}y Experience
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                {new Date(staffMember.joiningDate).toLocaleDateString('en-IN')}
-                                                {staffMember.leavingDate && (
-                                                    <div className="text-xs text-gray-400 mt-1">
-                                                        Left: {new Date(staffMember.leavingDate).toLocaleDateString('en-IN')}
-                                                    </div>
-                                                )}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="flex items-center space-x-2">
-                                                    <Link
-                                                        to={`/staff/${staffMember._id}`}
-                                                        className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition"
-                                                        title="View Details"
-                                                    >
-                                                        <FiEye className="h-5 w-5" />
+                                            <td className="px-8 py-6 text-right">
+                                                <div className="flex items-center justify-end space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <Link to={`/staff/${staffMember._id}`} className="p-2.5 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-primary-600 hover:text-white rounded-xl transition-all shadow-sm">
+                                                        <FiEye className="w-4 h-4" />
                                                     </Link>
                                                     {user?.role === 'admin' && (
                                                         <>
-                                                            <Link
-                                                                to={`/staff/${staffMember._id}/edit`}
-                                                                className="p-2 text-green-600 hover:text-green-800 hover:bg-green-50 rounded-lg transition"
-                                                                title="Edit"
-                                                            >
-                                                                <FiEdit className="h-5 w-5" />
+                                                            <Link to={`/staff/${staffMember._id}/edit`} className="p-2.5 bg-slate-50 dark:bg-slate-800 text-emerald-600 hover:bg-emerald-600 hover:text-white rounded-xl transition-all shadow-sm">
+                                                                <FiEdit className="w-4 h-4" />
                                                             </Link>
-                                                            {staffMember.isActive && (
-                                                                <button
-                                                                    onClick={() => handleDeactivate(staffMember._id, staffMember.user?.name)}
-                                                                    className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition"
-                                                                    title="Deactivate"
-                                                                >
-                                                                    <FiTrash2 className="h-5 w-5" />
-                                                                </button>
-                                                            )}
+                                                            <button onClick={() => handleDelete(staffMember._id, staffMember.user?.name)} className="p-2.5 bg-rose-50 dark:bg-rose-900/20 text-rose-600 hover:bg-rose-600 hover:text-white rounded-xl transition-all shadow-sm">
+                                                                <FiTrash2 className="w-4 h-4" />
+                                                            </button>
                                                         </>
                                                     )}
                                                 </div>
                                             </td>
-                                        </tr>
+                                        </motion.tr>
                                     ))}
-                                </tbody>
-                            </table>
-                        </div>
+                                </AnimatePresence>
+                            </tbody>
+                        </table>
+                    )}
+                </div>
 
-                        {/* Pagination */}
-                        <div className="px-6 py-4 border-t border-gray-200">
-                            <div className="flex items-center justify-between">
-                                <div className="text-sm text-gray-700">
-                                    Showing {staff.length} of {pagination.total} staff members
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                    <button
-                                        onClick={() => setPagination({ ...pagination, page: pagination.page - 1 })}
-                                        disabled={pagination.page === 1}
-                                        className="px-3 py-1 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                                    >
-                                        Previous
-                                    </button>
-                                    <span className="px-3 py-1 text-sm">
-                                        Page {pagination.page} of {pagination.totalPages}
-                                    </span>
-                                    <button
-                                        onClick={() => setPagination({ ...pagination, page: pagination.page + 1 })}
-                                        disabled={pagination.page >= pagination.totalPages}
-                                        className="px-3 py-1 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                                    >
-                                        Next
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </>
-                )}
-            </div>
+                {/* Pagination Meta */}
+                <div className="p-8 border-t border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/30 flex flex-col sm:flex-row items-center justify-between gap-6">
+                    <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
+                        Total Personnel: <span className="text-slate-800 dark:text-white font-black">{staff.length}</span> of <span className="text-slate-800 dark:text-white font-black">{pagination.total}</span> Records
+                    </p>
+                    <div className="flex items-center space-x-3">
+                        <button
+                            onClick={() => setPagination({ ...pagination, page: pagination.page - 1 })}
+                            disabled={pagination.page === 1}
+                            className="px-6 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-sm"
+                        >
+                            Back
+                        </button>
+                        <span className="w-8 h-8 flex items-center justify-center bg-primary-600 text-white rounded-lg text-xs font-black shadow-lg shadow-primary-500/20">{pagination.page}</span>
+                        <button
+                            onClick={() => setPagination({ ...pagination, page: pagination.page + 1 })}
+                            disabled={pagination.page >= pagination.totalPages}
+                            className="px-6 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-sm"
+                        >
+                            Forward
+                        </button>
+                    </div>
+                </div>
+            </motion.div>
 
-            {/* Department Distribution */}
-            <div className="mt-8 bg-white rounded-xl shadow-md p-6">
-                <h3 className="text-lg font-semibold text-gray-800 mb-6">Department Distribution</h3>
-                <div className="grid grid-cols-2 md:grid-cols-7 gap-4">
+            {/* Department Matrix Visualization */}
+            <motion.div variants={itemVariants} className="card !rounded-[2.5rem] p-8 border border-slate-100 dark:border-slate-800 shadow-sm relative overflow-hidden group">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-primary-500/5 rounded-full blur-[100px] -mr-32 -mt-32"></div>
+                <div className="flex items-center space-x-3 mb-10">
+                    <div className="p-3 bg-primary-50 dark:bg-primary-900/20 rounded-2xl text-primary-600 group-hover:scale-110 transition-transform">
+                        <FiBriefcase />
+                    </div>
+                    <h3 className="text-xl font-black text-slate-800 dark:text-white uppercase tracking-tight">Departmental Infrastructure Analyze</h3>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-8">
                     {departments.map(dept => {
                         const count = staff.filter(s => s.department === dept).length;
                         const percentage = staff.length > 0 ? (count / staff.length) * 100 : 0;
-
                         return (
-                            <div key={dept} className="text-center">
-                                <div className="h-20 w-20 mx-auto mb-3 rounded-full flex items-center justify-center text-white text-2xl font-bold"
-                                    style={{
-                                        background: `conic-gradient(${departmentHexColors[dept]} ${percentage}%, #f3f4f6 0)`
-                                    }}
-                                >
-                                    <div className="h-16 w-16 bg-white rounded-full flex items-center justify-center">
-                                        <span className={`text-lg font-bold ${departmentColors[dept] ? departmentColors[dept].split(' ')[1] : 'text-gray-800'}`}>
+                            <motion.div key={dept} whileHover={{ y: -5 }} className="text-center group/dept">
+                                <div className="relative h-24 w-24 mx-auto mb-4 p-1.5 rounded-full border-2 border-slate-100 dark:border-slate-800 transition-colors group-hover/dept:border-primary-500/30">
+                                    <div className="h-full w-full rounded-full flex items-center justify-center bg-white dark:bg-slate-800 shadow-inner relative z-10 overflow-hidden">
+                                        <div 
+                                            className="absolute bottom-0 left-0 w-full transition-all duration-1000 ease-out opacity-20"
+                                            style={{ height: `${percentage}%`, backgroundColor: departmentHexColors[dept] }}
+                                        ></div>
+                                        <span className={`text-2xl font-black text-slate-800 dark:text-white relative z-10`} style={{ color: count > 0 ? departmentHexColors[dept] : undefined }}>
                                             {count}
                                         </span>
                                     </div>
+                                    <svg className="absolute inset-0 w-full h-full -rotate-90 opacity-20">
+                                        <circle cx="48" cy="48" r="46" fill="transparent" stroke={departmentHexColors[dept]} strokeWidth="4" strokeDasharray={`${percentage * 2.89} 289`} />
+                                    </svg>
                                 </div>
-                                <p className="text-sm font-medium text-gray-700">{capitalize(dept)}</p>
-                                <p className="text-xs text-gray-500">{percentage.toFixed(1)}%</p>
-                            </div>
+                                <p className="text-[10px] font-black text-slate-400 group-hover/dept:text-slate-800 dark:group-hover/dept:text-white uppercase tracking-widest transition-colors">{capitalize(dept)}</p>
+                                <p className="text-[9px] font-bold text-slate-300 mt-1 uppercase tracking-tighter">{percentage.toFixed(1)}% Ratio</p>
+                            </motion.div>
                         );
                     })}
                 </div>
-            </div>
-        </div>
+            </motion.div>
+        </motion.div>
     );
 };
 

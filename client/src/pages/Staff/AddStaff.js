@@ -6,8 +6,9 @@ import { toast } from 'react-hot-toast';
 import {
     FiUser, FiMail, FiPhone, FiMapPin, FiBriefcase,
     FiChevronLeft, FiSave, FiCalendar, FiClock,
-    FiAward, FiDollarSign, FiAlertCircle
+    FiAward, FiAlertCircle
 } from 'react-icons/fi';
+import { TbCurrencyRupee } from 'react-icons/tb';
 import api from '../../utils/api';
 
 const validationSchema = Yup.object({
@@ -141,26 +142,26 @@ const AddStaff = () => {
     };
 
     return (
-        <div className="p-6">
+        <div className="p-6 min-h-screen bg-gray-50 dark:bg-slate-900 transition-colors">
             <div className="max-w-6xl mx-auto">
                 {/* Header with Breadcrumbs */}
                 <div className="mb-8">
-                    <div className="flex items-center text-sm text-gray-600 mb-4">
+                    <div className="flex items-center text-sm text-gray-600 dark:text-gray-400 mb-4">
                         <button
                             onClick={() => navigate('/staff')}
-                            className="flex items-center text-blue-600 hover:text-blue-800"
+                            className="flex items-center text-primary-600 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300"
                         >
                             <FiChevronLeft className="mr-1" />
                             Back to Staff List
                         </button>
                         <span className="mx-2">/</span>
-                        <span className="text-gray-800 font-medium">Add New Staff Member</span>
+                        <span className="text-gray-800 dark:text-white font-medium">Add New Staff Member</span>
                     </div>
-                    <h1 className="text-3xl font-bold text-gray-800">Add New Staff Member</h1>
-                    <p className="text-gray-600">Create a new staff account and profile</p>
+                    <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Add New Staff Member</h1>
+                    <p className="text-gray-600 dark:text-gray-400">Create a new staff account and profile</p>
                 </div>
 
-                <div className="bg-white rounded-xl shadow-md p-6">
+                <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md p-6 border border-gray-100 dark:border-slate-700">
                     <Formik
                         initialValues={initialValues}
                         validationSchema={validationSchema}
@@ -169,21 +170,21 @@ const AddStaff = () => {
                         {({ isSubmitting, values, setFieldValue }) => (
                             <Form className="space-y-8">
                                 {/* Account Information */}
-                                <div className="border-b pb-8">
-                                    <h2 className="text-xl font-semibold mb-6 text-gray-800 flex items-center">
+                                <div className="border-b dark:border-slate-700 pb-8">
+                                    <h2 className="text-xl font-semibold mb-6 text-gray-800 dark:text-white flex items-center">
                                         <FiUser className="mr-3" />
                                         Account Information
                                     </h2>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         {/* Full Name */}
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                                 Full Name *
                                             </label>
                                             <Field
                                                 type="text"
                                                 name="userData.name"
-                                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                                                className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition text-gray-900 dark:text-white"
                                                 placeholder="Enter full name"
                                             />
                                             <ErrorMessage name="userData.name">
@@ -195,15 +196,15 @@ const AddStaff = () => {
 
                                         {/* Email */}
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                                 Email Address *
                                             </label>
                                             <div className="relative">
-                                                <FiMail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                                                <FiMail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
                                                 <Field
                                                     type="email"
                                                     name="userData.email"
-                                                    className="pl-10 w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                                                    className="pl-10 w-full px-4 py-3 bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition text-gray-900 dark:text-white"
                                                     placeholder="staff@example.com"
                                                 />
                                             </div>
@@ -214,34 +215,34 @@ const AddStaff = () => {
 
                                         {/* Password */}
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                                 Password *
                                             </label>
                                             <Field
                                                 type="password"
                                                 name="userData.password"
-                                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                                                className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition text-gray-900 dark:text-white"
                                                 placeholder="••••••••"
                                             />
                                             <ErrorMessage name="userData.password">
                                                 {msg => <div className="text-red-500 text-sm mt-2">{msg}</div>}
                                             </ErrorMessage>
-                                            <p className="text-xs text-gray-500 mt-1">
+                                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                                                 Minimum 6 characters
                                             </p>
                                         </div>
 
                                         {/* Phone */}
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                                 Phone Number *
                                             </label>
                                             <div className="relative">
-                                                <FiPhone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                                                <FiPhone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
                                                 <Field
                                                     type="tel"
                                                     name="userData.phone"
-                                                    className="pl-10 w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                                                    className="pl-10 w-full px-4 py-3 bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition text-gray-900 dark:text-white"
                                                     placeholder="9876543210"
                                                 />
                                             </div>
@@ -252,16 +253,16 @@ const AddStaff = () => {
 
                                         {/* Address */}
                                         <div className="md:col-span-2">
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                                 Address
                                             </label>
                                             <div className="relative">
-                                                <FiMapPin className="absolute left-3 top-3 text-gray-400" />
+                                                <FiMapPin className="absolute left-3 top-3 text-gray-400 dark:text-gray-500" />
                                                 <Field
                                                     as="textarea"
                                                     name="userData.address"
                                                     rows="3"
-                                                    className="pl-10 w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                                                    className="pl-10 w-full px-4 py-3 bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition text-gray-900 dark:text-white"
                                                     placeholder="Complete address"
                                                 />
                                             </div>
@@ -270,25 +271,25 @@ const AddStaff = () => {
                                 </div>
 
                                 {/* Professional Information */}
-                                <div className="border-b pb-8">
-                                    <h2 className="text-xl font-semibold mb-6 text-gray-800 flex items-center">
+                                <div className="border-b dark:border-slate-700 pb-8">
+                                    <h2 className="text-xl font-semibold mb-6 text-gray-800 dark:text-white flex items-center">
                                         <FiBriefcase className="mr-3" />
                                         Professional Information
                                     </h2>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         {/* Department */}
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                                 Department *
                                             </label>
                                             <Field
                                                 as="select"
                                                 name="staffData.department"
-                                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                                                className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition text-gray-900 dark:text-white"
                                             >
-                                                <option value="">Select Department</option>
+                                                <option value="" className="dark:bg-slate-900">Select Department</option>
                                                 {departments.map(dept => (
-                                                    <option key={dept.value} value={dept.value}>{dept.label}</option>
+                                                    <option key={dept.value} value={dept.value} className="dark:bg-slate-900">{dept.label}</option>
                                                 ))}
                                             </Field>
                                             <ErrorMessage name="staffData.department">
@@ -298,13 +299,13 @@ const AddStaff = () => {
 
                                         {/* Designation */}
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                                 Designation *
                                             </label>
                                             <Field
                                                 type="text"
                                                 name="staffData.designation"
-                                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                                                className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition text-gray-900 dark:text-white"
                                                 placeholder="e.g., Senior Caretaker"
                                             />
                                             <ErrorMessage name="staffData.designation">
@@ -314,21 +315,21 @@ const AddStaff = () => {
 
                                         {/* Qualification */}
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                                 <FiAward className="inline mr-2" />
                                                 Qualification
                                             </label>
                                             <Field
                                                 type="text"
                                                 name="staffData.qualification"
-                                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                                                className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition text-gray-900 dark:text-white"
                                                 placeholder="e.g., B.Ed, Diploma"
                                             />
                                         </div>
 
                                         {/* Experience */}
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                                 <FiClock className="inline mr-2" />
                                                 Experience (Years)
                                             </label>
@@ -337,54 +338,54 @@ const AddStaff = () => {
                                                 name="staffData.experience"
                                                 min="0"
                                                 max="50"
-                                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                                                className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition text-gray-900 dark:text-white"
                                             />
                                         </div>
 
                                         {/* Salary */}
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                <FiDollarSign className="inline mr-2" />
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                                <TbCurrencyRupee className="inline mr-2" />
                                                 Monthly Salary
                                             </label>
                                             <Field
                                                 type="number"
                                                 name="staffData.salary"
                                                 min="0"
-                                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                                                className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition text-gray-900 dark:text-white"
                                                 placeholder="0"
                                             />
                                         </div>
 
                                         {/* Shift */}
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                                 Shift
                                             </label>
                                             <Field
                                                 as="select"
                                                 name="staffData.shift"
-                                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                                                className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition text-gray-900 dark:text-white"
                                             >
                                                 {shifts.map(shift => (
-                                                    <option key={shift.value} value={shift.value}>{shift.label}</option>
+                                                    <option key={shift.value} value={shift.value} className="dark:bg-slate-900">{shift.label}</option>
                                                 ))}
                                             </Field>
                                         </div>
 
                                         {/* Working Days */}
                                         <div className="md:col-span-2">
-                                            <label className="block text-sm font-medium text-gray-700 mb-3">
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
                                                 Working Days
                                             </label>
                                             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                                                 {weekDays.map(day => (
-                                                    <label key={day.value} className="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50">
+                                                    <label key={day.value} className="flex items-center p-3 border border-gray-200 dark:border-slate-700 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 transition">
                                                         <Field
                                                             type="checkbox"
                                                             name="staffData.workingDays"
                                                             value={day.value}
-                                                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                                            className="h-4 w-4 text-primary-600 dark:bg-slate-900 focus:ring-primary-500 border-gray-300 dark:border-slate-600 rounded"
                                                             checked={values.staffData.workingDays?.includes(day.value)}
                                                             onChange={(e) => {
                                                                 const checked = e.target.checked;
@@ -396,7 +397,7 @@ const AddStaff = () => {
                                                                 }
                                                             }}
                                                         />
-                                                        <span className="ml-2 text-sm text-gray-700">{day.label}</span>
+                                                        <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">{day.label}</span>
                                                     </label>
                                                 ))}
                                             </div>
@@ -404,7 +405,7 @@ const AddStaff = () => {
 
                                         {/* Children Capacity */}
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                                 Maximum Children Capacity
                                             </label>
                                             <Field
@@ -412,9 +413,9 @@ const AddStaff = () => {
                                                 name="staffData.maxChildrenCapacity"
                                                 min="1"
                                                 max="20"
-                                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                                                className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition text-gray-900 dark:text-white"
                                             />
-                                            <p className="text-xs text-gray-500 mt-1">
+                                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                                                 Maximum number of children this staff can handle
                                             </p>
                                         </div>
@@ -422,42 +423,42 @@ const AddStaff = () => {
                                 </div>
 
                                 {/* Emergency Contact */}
-                                <div className="border-b pb-8">
-                                    <h2 className="text-xl font-semibold mb-6 text-gray-800 flex items-center">
+                                <div className="border-b dark:border-slate-700 pb-8">
+                                    <h2 className="text-xl font-semibold mb-6 text-gray-800 dark:text-white flex items-center">
                                         <FiPhone className="mr-3" />
                                         Emergency Contact (Optional)
                                     </h2>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                                 Contact Name
                                             </label>
                                             <Field
                                                 type="text"
                                                 name="staffData.emergencyContact.name"
-                                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                                                className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition text-gray-900 dark:text-white"
                                                 placeholder="Emergency contact name"
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                                 Relationship
                                             </label>
                                             <Field
                                                 type="text"
                                                 name="staffData.emergencyContact.relationship"
-                                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                                                className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition text-gray-900 dark:text-white"
                                                 placeholder="e.g., Spouse, Parent"
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                                 Phone Number
                                             </label>
                                             <Field
                                                 type="tel"
                                                 name="staffData.emergencyContact.phone"
-                                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                                                className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition text-gray-900 dark:text-white"
                                                 placeholder="10-digit phone number"
                                             />
                                             <ErrorMessage name="staffData.emergencyContact.phone">
@@ -468,12 +469,12 @@ const AddStaff = () => {
                                 </div>
 
                                 {/* Important Notes */}
-                                <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg p-6 border border-blue-200">
+                                <div className="bg-gradient-to-r from-primary-50 to-primary-100 dark:from-slate-700/50 dark:to-slate-600/50 rounded-lg p-6 border border-primary-200 dark:border-slate-600">
                                     <div className="flex items-start">
-                                        <FiAlertCircle className="h-5 w-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" />
+                                        <FiAlertCircle className="h-5 w-5 text-primary-600 dark:text-primary-400 mt-0.5 mr-3 flex-shrink-0" />
                                         <div>
-                                            <h3 className="font-semibold text-blue-800 mb-2">Important Information</h3>
-                                            <ul className="text-sm text-blue-700 space-y-1">
+                                            <h3 className="font-semibold text-primary-800 dark:text-primary-100 mb-2">Important Information</h3>
+                                            <ul className="text-sm text-primary-700 dark:text-gray-300 space-y-1">
                                                 <li>• Employee ID will be auto-generated upon creation</li>
                                                 <li>• Staff member will receive an email with login credentials</li>
                                                 <li>• Default password can be changed after first login</li>
@@ -489,14 +490,14 @@ const AddStaff = () => {
                                     <button
                                         type="button"
                                         onClick={() => navigate('/staff')}
-                                        className="px-8 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition font-medium"
+                                        className="px-8 py-3 border border-gray-300 dark:border-slate-700 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 transition font-medium text-gray-700 dark:text-gray-300"
                                     >
                                         Cancel
                                     </button>
                                     <button
                                         type="submit"
                                         disabled={isSubmitting || loading}
-                                        className="px-8 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                                        className="px-8 py-3 bg-gradient-to-r from-primary-600 to-primary-700 text-white rounded-lg hover:from-primary-700 hover:to-primary-800 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
                                     >
                                         {loading ? (
                                             <>

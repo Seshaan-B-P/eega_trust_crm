@@ -193,6 +193,32 @@ class EmailService {
             throw error;
         }
     }
+
+    // Send welcome email to new staff
+    async sendWelcomeEmail(user, password) {
+        try {
+            const html = await this.loadTemplate('welcome', {
+                userName: user.name,
+                email: user.email,
+                password: password,
+                loginUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/login`
+            });
+
+            const mailOptions = {
+                from: '"EEGA Trust" <accounts@eegatrust.org>',
+                to: user.email,
+                subject: 'Welcome to EEGA Trust - Your Staff Account',
+                html: html
+            };
+
+            const info = await this.transporter.sendMail(mailOptions);
+            console.log('Welcome email sent:', info.messageId);
+            return info;
+        } catch (error) {
+            console.error('Error sending welcome email:', error);
+            throw error;
+        }
+    }
 }
 
 module.exports = new EmailService();

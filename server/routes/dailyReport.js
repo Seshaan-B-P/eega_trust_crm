@@ -7,7 +7,7 @@ const {
     getDailyReportById,
     updateDailyReport,
     deleteDailyReport,
-    getReportsByChild,
+    getReportsByResident,
     getReportsNeedingAttention,
     markAsResolved,
     getReportStats,
@@ -21,7 +21,7 @@ router.use(authenticate);
 // Public routes (for authenticated users)
 router.get('/', getAllDailyReports);  // LINE 21 - This was causing the error
 router.get('/stats/overview', getReportStats);
-router.get('/child/:childId', getReportsByChild);
+router.get('/resident/:type/:residentId', getReportsByResident);
 router.get('/:id', getDailyReportById);
 router.post('/', createDailyReport);
 router.put('/:id', updateDailyReport);

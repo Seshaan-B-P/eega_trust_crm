@@ -85,6 +85,17 @@ const updateProfile = async (data) => {
     }
 };
 
+const forgotPassword = async (email) => {
+    try {
+        const response = await api.post('/auth/forgot-password', { email });
+        toast.success(response.data.message);
+        return { success: true, message: response.data.message };
+    } catch (error) {
+        // toast.error is already handled by api interceptor if response exists
+        return { success: false, message: error.response?.data?.message || 'Connection failed' };
+    }
+};
+
 const value = {
     user,
     loading,
@@ -92,7 +103,8 @@ const value = {
     login,
     register,
     logout,
-    updateProfile
+    updateProfile,
+    forgotPassword
 };
 
     return (

@@ -9,14 +9,15 @@ const app = express();
 
 // ========== MIDDLEWARE ==========
 app.use(cors({
-    origin: 'http://localhost:3000',
+    origin: ['http://localhost:3000', 'http://localhost:3001'],
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/receipts', express.static(path.join(__dirname, 'uploads/receipts')));
 
 // Request Logger
 app.use((req, res, next) => {
@@ -48,7 +49,7 @@ app.get('/', (req, res) => {
     res.json({
         success: true,
         message: '🎉 EEGA Trust CRM API',
-        version: '1.0.0',
+        version: '1.0.1',
         status: 'running',
         timestamp: new Date().toISOString(),
         database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
@@ -58,6 +59,9 @@ app.get('/', (req, res) => {
             staff: '/api/staff',
             reports: '/api/reports',
             attendance: '/api/attendance',
+            staffAttendance: '/api/staff-attendance',
+            expenses: '/api/expenses',
+            inventory: '/api/inventory',
             health: '/health',
             docs: '/api/docs'
         }
@@ -128,6 +132,20 @@ app.get('/api/docs', (req, res) => {
                 path: '/api/attendance',
                 description: 'Mark attendance',
                 auth: true
+            },
+            {
+                method: 'GET',
+                path: '/api/expenses',
+                description: 'Get all expenses',
+                auth: true,
+                role: 'admin'
+            },
+            {
+                method: 'POST',
+                path: '/api/expenses',
+                description: 'Create new expense',
+                auth: true,
+                role: 'admin'
             }
         ],
 
@@ -138,37 +156,42 @@ app.get('/api/docs', (req, res) => {
     });
 });
 
+
+
 // ========== API ROUTES ==========
 // We'll add these routes one by one
 const setupRoutes = async () => {
-    try {
-        console.log('Loading routes...');
+    console.log('Loading API routes...');
 
-        console.log('Loading Auth routes...');
-        const authRoutes = require('./routes/auth');
-        app.use('/api/auth', authRoutes);
+    const routes = [
+        { path: '/api/auth', file: './routes/auth', name: 'Auth' },
+        { path: '/api/elderly', file: './routes/elderlyRoutes', name: 'Elderly' },
+        { path: '/api/children', file: './routes/child', name: 'Child' },
+        { path: '/api/staff', file: './routes/staff', name: 'Staff' },
+        { path: '/api/reports', file: './routes/dailyReport', name: 'Report' },
+        { path: '/api/attendance', file: './routes/attendance', name: 'Attendance' },
+        { path: '/api/staff-attendance', file: './routes/staffAttendance', name: 'Staff Attendance' },
+        { path: '/api/donations', file: './routes/donation', name: 'Donation' },
+        { path: '/api/expenses', file: './routes/expense', name: 'Expense' },
+        { path: '/api/analytics', file: './routes/analytics', name: 'Analytics' },
+        { path: '/api/inventory', file: './routes/inventoryRoutes', name: 'Inventory' },
+        { path: '/api/notifications', file: './routes/notification', name: 'Notification' },
+        { path: '/api/search', file: './routes/search', name: 'Search' },
+        { path: '/api/health', file: './routes/health', name: 'Health' }
+    ];
 
-        console.log('Loading Child routes...');
-        const childRoutes = require('./routes/child');
-        app.use('/api/children', childRoutes);
-
-        console.log('Loading Staff routes...');
-        const staffRoutes = require('./routes/staff');
-        app.use('/api/staff', staffRoutes);
-
-        console.log('Loading Report routes...');
-        const dailyReportRoutes = require('./routes/dailyReport');
-        app.use('/api/reports', dailyReportRoutes);
-
-        console.log('Loading Attendance routes...');
-        const attendanceRoutes = require('./routes/attendance');
-        app.use('/api/attendance', attendanceRoutes);
-
-        console.log('✅ Routes loaded successfully');
-    } catch (error) {
-        console.error('❌ Error loading routes:', error);
-        console.log('⚠️  Running with basic routes only');
+    for (const route of routes) {
+        try {
+            console.log(`Loading ${route.name} routes...`);
+            const routeModule = require(route.file);
+            app.use(route.path, routeModule);
+            console.log(`✅ ${route.name} routes loaded`);
+        } catch (error) {
+            console.error(`❌ Error loading ${route.name} routes:`, error.message);
+        }
     }
+
+    console.log('✅ API routes initialization complete');
 };
 
 // ========== ERROR HANDLING ==========
@@ -180,11 +203,13 @@ const setupErrorHandling = () => {
             message: '🔍 Route not found',
             requestedUrl: req.originalUrl,
             availableEndpoints: [
-                'GET /',
                 'GET /health',
                 'GET /api/docs',
                 'POST /api/auth/login',
-                'GET /api/children'
+                'GET /api/children',
+                'GET /api/donations/stats',
+                'GET /api/expenses/stats',
+                'GET /api/attendance/stats'
             ]
         });
     });

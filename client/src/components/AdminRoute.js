@@ -2,7 +2,7 @@ import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-const AdminRoute = () => {
+const AdminRoute = ({ children }) => {
     const { user, loading } = useAuth();
 
     if (loading) {
@@ -17,7 +17,7 @@ const AdminRoute = () => {
         return <Navigate to="/dashboard" />;
     }
 
-    return <Outlet />;
+    return children ? children : <Outlet />;
 };
 
 export default AdminRoute;

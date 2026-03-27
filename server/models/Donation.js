@@ -133,7 +133,7 @@ const donationSchema = new mongoose.Schema({
 });
 
 // Generate donation ID
-donationSchema.pre('save', async function (next) {
+donationSchema.pre('validate', async function (next) {
     if (!this.donationId) {
         const count = await mongoose.model('Donation').countDocuments();
         const year = new Date().getFullYear().toString().slice(-2);

@@ -1,80 +1,37 @@
 const Attendance = require('../models/Attendance');
 const Child = require('../models/Child');
+const Elderly = require('../models/Elderly');
 const User = require('../models/User');
 const mongoose = require('mongoose');
+const { createNotification } = require('../utils/notificationHelper');
 
-// @desc    Get attendance stats
-// @route   GET /api/attendance/stats/overview
-// @access  Protected
-exports.getAttendanceStats = async (req, res) => {
-    try {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        const totalActiveChildren = await Child.countDocuments({ status: 'active' });
-        const presentToday = await Attendance.countDocuments({
-            date: today,
-            status: 'present'
-        });
-
-        // Calculate monthly percentage (simplified)
-        const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-        const monthlyAttendance = await Attendance.countDocuments({
-            date: { $gte: startOfMonth },
-            status: 'present'
-        });
-
-        // This is a rough estimate for percentage
-        const percentage = totalActiveChildren > 0
-            ? Math.round((presentToday / totalActiveChildren) * 100)
-            : 0;
-
-        res.json({
-            success: true,
-            data: {
-                today: presentToday,
-                totalActive: totalActiveChildren,
-                percentage
-            }
-        });
-    } catch (error) {
-        console.error('Error fetching attendance stats:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Server error'
-        });
-    }
-};
 
 // @desc    Mark attendance for a child
 // @route   POST /api/attendance
 // @access  Private (Staff & Admin)
 exports.markAttendance = async (req, res) => {
     try {
-        const { child, date, status, remarks, temperature, symptoms, medication } = req.body;
+        const { child, elderly, date, status, remarks, temperature, symptoms, medication } = req.body;
 
-        // Validate child exists and is active
-        const childDoc = await Child.findOne({
-            _id: child,
-            status: 'active'
-        });
-
-        if (!childDoc) {
-            return res.status(404).json({
+        if (!child && !elderly) {
+            return res.status(400).json({
                 success: false,
-                message: 'Child not found or not active'
+                message: 'Please provide either a child or an elderly resident ID'
             });
         }
 
-        // Check authorization for staff
-        if (req.user.role === 'staff') {
-            const isAssigned = childDoc.assignedStaff?.toString() === req.user.id;
-            if (!isAssigned) {
-                return res.status(403).json({
-                    success: false,
-                    message: 'Not authorized to mark attendance for this child'
-                });
-            }
+        let residentDoc;
+        if (child) {
+            residentDoc = await Child.findOne({ _id: child, status: 'active' });
+        } else {
+            residentDoc = await Elderly.findOne({ _id: elderly, status: 'Active' });
+        }
+
+        if (!residentDoc) {
+            return res.status(404).json({
+                success: false,
+                message: `${child ? 'Child' : 'Elderly resident'} not found or not active`
+            });
         }
 
         // Parse date
@@ -82,21 +39,23 @@ exports.markAttendance = async (req, res) => {
         attendanceDate.setHours(0, 0, 0, 0);
 
         // Check if attendance already marked for today
-        const existingAttendance = await Attendance.findOne({
-            child,
-            date: attendanceDate
-        });
+        const query = { date: attendanceDate };
+        if (child) query.child = child;
+        if (elderly) query.elderly = elderly;
+
+        const existingAttendance = await Attendance.findOne(query);
 
         if (existingAttendance) {
             return res.status(400).json({
                 success: false,
-                message: 'Attendance already marked for this child today'
+                message: `Attendance already marked for this ${child ? 'child' : 'elderly resident'} today`
             });
         }
 
         // Create attendance record
         const attendance = await Attendance.create({
-            child,
+            child: child || undefined,
+            elderly: elderly || undefined,
             date: attendanceDate,
             status,
             remarks,
@@ -108,7 +67,19 @@ exports.markAttendance = async (req, res) => {
 
         const populatedAttendance = await Attendance.findById(attendance._id)
             .populate('child', 'name childId age gender')
+            .populate('elderly', 'name age gender')
             .populate('markedBy', 'name email');
+
+        // Notify admins if marked by staff
+        if (req.user.role === 'staff') {
+            await createNotification({
+                title: 'Attendance Marked',
+                message: `Staff ${req.user.name} marked attendance for ${residentDoc.name} (${child ? 'child' : 'elderly'}) as ${status}`,
+                type: 'attendance',
+                data: { attendanceId: attendance._id, residentId: residentDoc._id, residentType: child ? 'child' : 'elderly' },
+                createdBy: req.user.id
+            });
+        }
 
         res.status(201).json({
             success: true,
@@ -131,7 +102,7 @@ exports.markAttendance = async (req, res) => {
         if (error.code === 11000) {
             return res.status(400).json({
                 success: false,
-                message: 'Attendance already marked for this child today'
+                message: 'Attendance already marked for this resident today'
             });
         }
 
@@ -157,47 +128,78 @@ exports.markBulkAttendance = async (req, res) => {
             });
         }
 
-        // Validate all children exist and are active
-        const childIds = attendanceList.map(item => item.child);
-        const children = await Child.find({
-            _id: { $in: childIds },
-            status: 'active'
-        });
+        // Validate all residents exist and are active
+        const childIds = attendanceList.filter(item => item.child).map(item => item.child);
+        const elderlyIds = attendanceList.filter(item => item.elderly).map(item => item.elderly);
 
-        if (children.length !== childIds.length) {
-            return res.status(400).json({
-                success: false,
-                message: 'One or more children not found or not active'
+        if (childIds.length > 0) {
+            const children = await Child.find({
+                _id: { $in: childIds },
+                status: 'active'
             });
+
+            if (children.length !== childIds.length) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'One or more children not found or not active'
+                });
+            }
+        }
+
+        if (elderlyIds.length > 0) {
+            const elderlyMatched = await Elderly.find({
+                _id: { $in: elderlyIds },
+                status: 'Active'
+            });
+
+            if (elderlyMatched.length !== elderlyIds.length) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'One or more elderly residents not found or not active'
+                });
+            }
         }
 
         // Check authorization for staff
+        // Note: Removed strict assignedStaff authorization for staff to allow broader attendance marking
+        /*
         if (req.user.role === 'staff') {
             const assignedChildren = await Child.find({
                 assignedStaff: req.user.id,
                 status: 'active'
             }).select('_id');
 
-            const assignedChildIds = assignedChildren.map(child => child._id.toString());
+            const assignedElderly = await Elderly.find({
+                assignedStaff: req.user.id,
+                status: 'Active'
+            }).select('_id');
 
-            const unauthorizedChildren = attendanceList.filter(item =>
-                !assignedChildIds.includes(item.child)
-            );
+            const assignedChildIds = assignedChildren.map(c => c._id.toString());
+            const assignedElderlyIds = assignedElderly.map(e => e._id.toString());
 
-            if (unauthorizedChildren.length > 0) {
+            const unauthorizedResidents = attendanceList.filter(item => {
+                if (item.child) return !assignedChildIds.includes(item.child);
+                if (item.elderly) return !assignedElderlyIds.includes(item.elderly);
+                return false;
+            });
+
+            if (unauthorizedResidents.length > 0) {
                 return res.status(403).json({
                     success: false,
-                    message: 'Not authorized to mark attendance for some children'
+                    message: 'Not authorized to mark attendance for some residents'
                 });
             }
         }
+        */
 
         // Prepare attendance data
         const attendanceData = attendanceList.map(item => ({
-            child: item.child,
+            child: item.child || undefined,
+            elderly: item.elderly || undefined,
             date: date || new Date(),
             status: item.status || 'present',
-            remarks: item.remarks
+            remarks: item.remarks,
+            temperature: item.temperature
         }));
 
         // Mark bulk attendance
@@ -208,15 +210,30 @@ exports.markBulkAttendance = async (req, res) => {
         markedDate.setHours(0, 0, 0, 0);
 
         const updatedAttendance = await Attendance.find({
-            child: { $in: childIds },
+            $or: [
+                { child: { $in: attendanceList.filter(i => i.child).map(i => i.child) } },
+                { elderly: { $in: attendanceList.filter(i => i.elderly).map(i => i.elderly) } }
+            ],
             date: markedDate
         })
             .populate('child', 'name childId')
+            .populate('elderly', 'name')
             .populate('markedBy', 'name');
+
+        // Notify admins if marked by staff
+        if (req.user.role === 'staff') {
+            await createNotification({
+                title: 'Bulk Attendance Marked',
+                message: `Staff ${req.user.name} marked bulk attendance for ${attendanceList.length} residents`,
+                type: 'attendance',
+                data: { count: attendanceList.length, date: markedDate },
+                createdBy: req.user.id
+            });
+        }
 
         res.status(201).json({
             success: true,
-            message: `Attendance marked for ${result.upsertedCount + result.modifiedCount} children`,
+            message: `Attendance marked for ${result.upsertedCount + result.modifiedCount} residents`,
             data: {
                 inserted: result.upsertedCount,
                 modified: result.modifiedCount,
@@ -241,6 +258,7 @@ exports.getAttendance = async (req, res) => {
     try {
         const {
             child,
+            elderly,
             startDate,
             endDate,
             status,
@@ -254,13 +272,23 @@ exports.getAttendance = async (req, res) => {
         // Build query
         let query = {};
 
-        // Child filter
+        // Resident filters
         if (child && mongoose.Types.ObjectId.isValid(child)) {
             query.child = child;
         }
+        if (elderly && mongoose.Types.ObjectId.isValid(elderly)) {
+            query.elderly = elderly;
+        }
 
         // Date range filter
-        if (startDate || endDate) {
+        const { date } = req.query;
+        if (date) {
+            const start = new Date(date);
+            start.setHours(0, 0, 0, 0);
+            const end = new Date(date);
+            end.setHours(23, 59, 59, 999);
+            query.date = { $gte: start, $lte: end };
+        } else if (startDate || endDate) {
             query.date = {};
             if (startDate) {
                 const start = new Date(startDate);
@@ -289,16 +317,29 @@ exports.getAttendance = async (req, res) => {
             query.markedBy = markedBy;
         }
 
-        // Staff can only see attendance for their assigned children
+        // Staff can only see attendance for their assigned residents
+        // Note: Removed strict assignedStaff filter for staff in attendance records
+        /*
         if (req.user.role === 'staff') {
             const assignedChildren = await Child.find({
                 assignedStaff: req.user.id,
                 status: 'active'
             }).select('_id');
 
-            const childIds = assignedChildren.map(child => child._id);
-            query.child = { $in: childIds };
+            const assignedElderly = await Elderly.find({
+                assignedStaff: req.user.id,
+                status: 'Active'
+            }).select('_id');
+
+            const childIds = assignedChildren.map(c => c._id);
+            const elderlyIds = assignedElderly.map(e => e._id);
+            
+            query.$or = [
+                { child: { $in: childIds } },
+                { elderly: { $in: elderlyIds } }
+            ];
         }
+        */
 
         // Pagination
         const pageNum = parseInt(page);
@@ -312,6 +353,7 @@ exports.getAttendance = async (req, res) => {
         // Execute query
         const attendance = await Attendance.find(query)
             .populate('child', 'name childId age gender photo')
+            .populate('elderly', 'name age gender photo')
             .populate('markedBy', 'name email')
             .populate('verifiedBy', 'name')
             .sort(sortOptions)
@@ -372,6 +414,7 @@ exports.getAttendanceById = async (req, res) => {
     try {
         const attendance = await Attendance.findById(req.params.id)
             .populate('child', 'name childId age gender assignedStaff medicalHistory allergies')
+            .populate('elderly', 'name age gender assignedStaff medicalConditions dietaryRestrictions')
             .populate('markedBy', 'name email phone')
             .populate('verifiedBy', 'name email')
             .lean();
@@ -383,7 +426,8 @@ exports.getAttendanceById = async (req, res) => {
             });
         }
 
-        // Check authorization for staff
+        // Note: Relaxed restrictive staff check for viewing individual attendance records
+        /*
         if (req.user.role === 'staff') {
             const child = await Child.findById(attendance.child._id);
             if (child.assignedStaff?.toString() !== req.user.id) {
@@ -393,6 +437,7 @@ exports.getAttendanceById = async (req, res) => {
                 });
             }
         }
+        */
 
         res.status(200).json({
             success: true,
@@ -451,9 +496,15 @@ exports.updateAttendance = async (req, res) => {
         }
 
         // Update attendance
+        const updateData = { ...req.body };
+        // If status is present and check-in time isn't set, set it to now
+        if (updateData.status === 'present' && !updateData.checkInTime && !attendance.checkInTime) {
+            updateData.checkInTime = new Date();
+        }
+
         const updatedAttendance = await Attendance.findByIdAndUpdate(
             req.params.id,
-            req.body,
+            updateData,
             { new: true, runValidators: true }
         )
             .populate('child', 'name childId')
@@ -608,48 +659,69 @@ exports.getTodaySummary = async (req, res) => {
 
         // Build base query based on user role
         let childQuery = { status: 'active' };
+        let elderlyQuery = { status: 'Active' };
+        
+        // Note: Removed strict assignedStaff filter for today's summary to allow staff to see all residents
+        /*
         if (req.user.role === 'staff') {
             childQuery.assignedStaff = req.user.id;
+            elderlyQuery.assignedStaff = req.user.id;
         }
+        */
 
-        // Get all active children (or assigned children for staff)
+        // Get all active residents
         const children = await Child.find(childQuery)
-            .select('name childId age gender assignedStaff')
+            .select('name childId age gender assignedStaff photo')
             .populate('assignedStaff', 'name')
             .lean();
 
-        // Get today's attendance for these children
-        const todayAttendance = await Attendance.find({
-            child: { $in: children.map(child => child._id) },
-            date: { $gte: today, $lt: tomorrow }
-        })
-            .select('child status remarks')
+        const elderly = await Elderly.find(elderlyQuery)
+            .select('name age gender assignedStaff photo')
+            .populate('assignedStaff', 'name')
             .lean();
 
-        // Create a map of child attendance
+        // Get today's attendance for these residents
+        const todayAttendance = await Attendance.find({
+            $or: [
+                { child: { $in: children.map(c => c._id) } },
+                { elderly: { $in: elderly.map(e => e._id) } }
+            ],
+            date: { $gte: today, $lt: tomorrow }
+        })
+            .select('child elderly status remarks')
+            .lean();
+
+        // Create a map of attendance
         const attendanceMap = {};
         todayAttendance.forEach(record => {
-            attendanceMap[record.child.toString()] = record;
+            if (record.child) {
+                attendanceMap[`child_${record.child.toString()}`] = record;
+            } else if (record.elderly) {
+                attendanceMap[`elderly_${record.elderly.toString()}`] = record;
+            }
         });
 
-        // Combine children with their attendance
-        const summary = children.map(child => ({
-            child: {
-                _id: child._id,
-                name: child.name,
-                childId: child.childId,
-                age: child.age,
-                gender: child.gender,
-                assignedStaff: child.assignedStaff
-            },
-            attendance: attendanceMap[child._id.toString()] || null,
-            isMarked: !!attendanceMap[child._id.toString()]
+        // Combine residents with their attendance
+        const childrenSummary = children.map(c => ({
+            type: 'child',
+            resident: c,
+            attendance: attendanceMap[`child_${c._id.toString()}`] || null,
+            isMarked: !!attendanceMap[`child_${c._id.toString()}`]
         }));
 
+        const elderlySummary = elderly.map(e => ({
+            type: 'elderly',
+            resident: e,
+            attendance: attendanceMap[`elderly_${e._id.toString()}`] || null,
+            isMarked: !!attendanceMap[`elderly_${e._id.toString()}`]
+        }));
+
+        const summary = [...childrenSummary, ...elderlySummary];
+
         // Calculate statistics
-        const totalChildren = summary.length;
+        const totalResidents = summary.length;
         const markedCount = summary.filter(item => item.isMarked).length;
-        const pendingCount = totalChildren - markedCount;
+        const pendingCount = totalResidents - markedCount;
 
         const statusCounts = summary.reduce((counts, item) => {
             if (item.attendance) {
@@ -662,11 +734,13 @@ exports.getTodaySummary = async (req, res) => {
             success: true,
             data: {
                 date: today,
-                totalChildren,
+                totalResidents,
                 marked: markedCount,
                 pending: pendingCount,
                 statusCounts,
-                summary
+                summary,
+                childrenSummary,
+                elderlySummary
             }
         });
 
@@ -695,25 +769,39 @@ exports.getAttendanceStats = async (req, res) => {
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
         // Build base query based on user role
-        let childQuery = { status: 'active' };
+        let residentMatch = {};
+        // Note: Removed strict assignedStaff filter for staff to allow them to see global stats
+        /*
         if (req.user.role === 'staff') {
-            childQuery.assignedStaff = req.user.id;
+            const assignedChildren = await Child.find({ assignedStaff: req.user.id, status: 'active' }).select('_id');
+            const assignedElderly = await Elderly.find({ assignedStaff: req.user.id, status: 'Active' }).select('_id');
+            const childIds = assignedChildren.map(c => c._id);
+            const elderlyIds = assignedElderly.map(e => e._id);
+            
+            residentMatch = {
+                $or: [
+                    { child: { $in: childIds } },
+                    { elderly: { $in: elderlyIds } }
+                ]
+            };
         }
+        */
 
-        const children = await Child.find(childQuery).select('_id');
-        const childIds = children.map(child => child._id);
+        const totalActiveChildren = await Child.countDocuments({ status: 'active' });
+        const totalActiveElderly = await Elderly.countDocuments({ status: 'Active' });
 
         // Today's attendance
         const todaysAttendance = await Attendance.countDocuments({
-            child: { $in: childIds },
-            date: { $gte: today }
+            ...residentMatch,
+            date: { $gte: today },
+            status: 'present'
         });
 
         // Last 7 days statistics
         const last7DaysStats = await Attendance.aggregate([
             {
                 $match: {
-                    child: { $in: childIds },
+                    ...residentMatch,
                     date: { $gte: sevenDaysAgo }
                 }
             },
@@ -730,7 +818,7 @@ exports.getAttendanceStats = async (req, res) => {
         const last30DaysTrend = await Attendance.aggregate([
             {
                 $match: {
-                    child: { $in: childIds },
+                    ...residentMatch,
                     date: { $gte: thirtyDaysAgo }
                 }
             },
@@ -753,7 +841,7 @@ exports.getAttendanceStats = async (req, res) => {
         const monthlyStats = await Attendance.aggregate([
             {
                 $match: {
-                    child: { $in: childIds },
+                    ...residentMatch,
                     date: { $gte: currentMonthStart }
                 }
             },
@@ -774,6 +862,7 @@ exports.getAttendanceStats = async (req, res) => {
             (monthlyStats[0].presentDays / monthlyStats[0].totalDays) * 100 : 0;
 
         // Children with low attendance (below 80% in last 30 days)
+        const childQuery = req.user.role === 'staff' ? { assignedStaff: req.user.id, status: 'active' } : { status: 'active' };
         const lowAttendanceChildren = await Child.aggregate([
             { $match: childQuery },
             {
@@ -838,7 +927,9 @@ exports.getAttendanceStats = async (req, res) => {
             data: {
                 totals: {
                     today: todaysAttendance,
-                    totalChildren: childIds.length
+                    totalChildren: totalActiveChildren,
+                    totalElderly: totalActiveElderly,
+                    totalActive: totalActiveChildren + totalActiveElderly
                 },
                 last7Days: last7DaysStats,
                 trends: {
@@ -867,13 +958,6 @@ exports.getAttendanceStats = async (req, res) => {
 // @access  Private/Admin
 exports.getMonthlyReport = async (req, res) => {
     try {
-        if (req.user.role !== 'admin') {
-            return res.status(403).json({
-                success: false,
-                message: 'Only admin can view monthly reports'
-            });
-        }
-
         const { year, month } = req.query;
         const targetDate = year && month ?
             new Date(parseInt(year), parseInt(month) - 1) :
@@ -882,51 +966,52 @@ exports.getMonthlyReport = async (req, res) => {
         const startOfMonth = new Date(targetDate.getFullYear(), targetDate.getMonth(), 1);
         const endOfMonth = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 0);
 
-        // Get all active children
-        const children = await Child.find({ status: 'active' })
-            .select('name childId age gender assignedStaff')
-            .populate('assignedStaff', 'name')
-            .lean();
+        // Get all active residents
+        const [children, elderly] = await Promise.all([
+            Child.find({ status: 'active' }).select('name childId age gender assignedStaff').populate('assignedStaff', 'name').lean(),
+            Elderly.find({ status: 'Active' }).select('name age gender assignedStaff').populate('assignedStaff', 'name').lean()
+        ]);
 
         // Get attendance for the month
         const attendance = await Attendance.find({
-            child: { $in: children.map(child => child._id) },
+            $or: [
+                { child: { $in: children.map(child => child._id) } },
+                { elderly: { $in: elderly.map(e => e._id) } }
+            ],
             date: { $gte: startOfMonth, $lte: endOfMonth }
         }).lean();
 
         // Create attendance map for quick lookup
         const attendanceMap = {};
         attendance.forEach(record => {
-            if (!attendanceMap[record.child]) {
-                attendanceMap[record.child] = {};
+            const key = record.child ? record.child.toString() : record.elderly.toString();
+            if (!attendanceMap[key]) {
+                attendanceMap[key] = {};
             }
             const dateStr = record.date.toISOString().split('T')[0];
-            attendanceMap[record.child][dateStr] = record.status;
+            attendanceMap[key][dateStr] = record.status;
         });
 
-        // Generate report for each child
-        const childReports = children.map(child => {
-            const childAttendance = attendanceMap[child._id] || {};
+        // Helper to generate report for a resident
+        const generateReport = (resident, type) => {
+            const resAttendance = attendanceMap[resident._id.toString()] || {};
             let presentDays = 0;
             let absentDays = 0;
             let sickDays = 0;
             let leaveDays = 0;
             let halfDays = 0;
 
-            // Calculate days in month
             const daysInMonth = endOfMonth.getDate();
-
             for (let day = 1; day <= daysInMonth; day++) {
                 const currentDate = new Date(targetDate.getFullYear(), targetDate.getMonth(), day);
                 const dateStr = currentDate.toISOString().split('T')[0];
-                const status = childAttendance[dateStr];
+                const status = resAttendance[dateStr];
 
                 if (status === 'present') presentDays++;
                 else if (status === 'absent') absentDays++;
                 else if (status === 'sick') sickDays++;
                 else if (status === 'leave') leaveDays++;
                 else if (status === 'half_day') halfDays++;
-                // If no attendance marked, count as absent
                 else absentDays++;
             }
 
@@ -934,12 +1019,13 @@ exports.getMonthlyReport = async (req, res) => {
             const attendancePercentage = ((presentDays + (halfDays * 0.5)) / totalDays) * 100;
 
             return {
-                child: {
-                    name: child.name,
-                    childId: child.childId,
-                    age: child.age,
-                    gender: child.gender,
-                    assignedStaff: child.assignedStaff
+                type,
+                resident: {
+                    name: resident.name,
+                    id: resident.childId || resident._id, // Use childId if available, else mongo _id
+                    age: resident.age,
+                    gender: resident.gender,
+                    assignedStaff: resident.assignedStaff
                 },
                 attendance: {
                     present: presentDays,
@@ -951,10 +1037,15 @@ exports.getMonthlyReport = async (req, res) => {
                     percentage: attendancePercentage.toFixed(2)
                 }
             };
-        });
+        };
+
+        const reports = [
+            ...children.map(c => generateReport(c, 'child')),
+            ...elderly.map(e => generateReport(e, 'elderly'))
+        ];
 
         // Calculate overall statistics
-        const overallStats = childReports.reduce((stats, report) => {
+        const overallStats = reports.reduce((stats, report) => {
             stats.totalPresent += report.attendance.present;
             stats.totalAbsent += report.attendance.absent;
             stats.totalSick += report.attendance.sick;
@@ -984,7 +1075,7 @@ exports.getMonthlyReport = async (req, res) => {
                     year: targetDate.getFullYear()
                 },
                 overall: overallStats,
-                reports: childReports.sort((a, b) => b.attendance.percentage - a.attendance.percentage)
+                reports: reports.sort((a, b) => b.attendance.percentage - a.attendance.percentage)
             }
         });
 

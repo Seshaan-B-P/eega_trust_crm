@@ -180,7 +180,7 @@ exports.getDashboardAnalytics = async (req, res) => {
             inactive: staffStats.find(s => s._id === false)?.count || 0
         };
 
-        // Process donation stats
+        // Process donation stats (Admin only)
         const donationData = donationStats[0] || {};
         const donationSummary = {
             total: donationData.total?.[0]?.amount || 0,
@@ -195,25 +195,30 @@ exports.getDashboardAnalytics = async (req, res) => {
         // Calculate occupancy rate
         const occupancyRate = childCounts.active / (childCounts.total || 1) * 100;
 
+        const responseData = {
+            children: {
+                ...childCounts,
+                occupancyRate: occupancyRate.toFixed(2),
+                ageDistribution,
+                genderDistribution
+            },
+            staff: staffCounts,
+            attendance: attendanceStats,
+            health: healthStats,
+            trends: {
+                monthlyAdmissions: monthlyTrends
+            },
+            timestamp: new Date()
+        };
+
+        // Only include sensitive financial data for admins
+        if (req.user.role === 'admin') {
+            responseData.donations = donationSummary;
+        }
+
         res.status(200).json({
             success: true,
-            data: {
-                children: {
-                    ...childCounts,
-                    occupancyRate: occupancyRate.toFixed(2),
-                    ageDistribution,
-                    genderDistribution
-                },
-                staff: staffCounts,
-                donations: donationSummary,
-                attendance: attendanceStats,
-                health: healthStats,
-                trends: {
-                    monthlyAdmissions: monthlyTrends,
-                    // Add more trends as needed
-                },
-                timestamp: new Date()
-            }
+            data: responseData
         });
     } catch (error) {
         console.error('Error fetching analytics:', error);

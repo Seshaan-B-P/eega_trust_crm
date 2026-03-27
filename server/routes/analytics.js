@@ -7,11 +7,9 @@ const {
 } = require('../controllers/analyticsController');
 const { authenticate, authorize } = require('../middleware/auth');
 
-// All analytics routes require admin authentication
-router.use(authenticate, authorize('admin'));
-
-router.get('/dashboard', getDashboardAnalytics);
-router.get('/predictive', getPredictiveAnalytics);
-router.get('/export', exportAnalytics);
+// Analytics routes
+router.get('/dashboard', authenticate, authorize('admin', 'staff'), getDashboardAnalytics);
+router.get('/predictive', authenticate, authorize('admin'), getPredictiveAnalytics);
+router.get('/export', authenticate, authorize('admin'), exportAnalytics);
 
 module.exports = router;

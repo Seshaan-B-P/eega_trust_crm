@@ -58,16 +58,7 @@ const staffSchema = new mongoose.Schema({
             default: Date.now
         }
     }],
-    performance: {
-        rating: {
-            type: Number,
-            min: 1,
-            max: 5,
-            default: 3
-        },
-        lastReview: Date,
-        notes: String
-    },
+
     isActive: {
         type: Boolean,
         default: true

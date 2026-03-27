@@ -2,7 +2,8 @@ const mongoose = require('mongoose');
 
 const dailyReportSchema = new mongoose.Schema({
     date: { type: Date, required: true, default: Date.now },
-    child: { type: mongoose.Schema.Types.ObjectId, ref: 'Child', required: true },
+    child: { type: mongoose.Schema.Types.ObjectId, ref: 'Child', required: false },
+    elderly: { type: mongoose.Schema.Types.ObjectId, ref: 'Elderly', required: false },
     staff: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     morningMeal: { type: String, enum: ['good', 'average', 'poor', 'skipped'] },
     afternoonMeal: { type: String, enum: ['good', 'average', 'poor', 'skipped'] },

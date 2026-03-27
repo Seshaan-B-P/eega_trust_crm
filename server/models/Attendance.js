@@ -4,7 +4,13 @@ const attendanceSchema = new mongoose.Schema({
     child: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Child',
-        required: true,
+        required: false,
+        index: true
+    },
+    elderly: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Elderly',
+        required: false,
         index: true
     },
     date: {
@@ -75,7 +81,10 @@ const attendanceSchema = new mongoose.Schema({
 });
 
 // Compound unique index for child and date
-attendanceSchema.index({ child: 1, date: 1 }, { unique: true });
+attendanceSchema.index({ child: 1, date: 1 }, { unique: true, partialFilterExpression: { child: { $exists: true } } });
+
+// Compound unique index for elderly and date
+attendanceSchema.index({ elderly: 1, date: 1 }, { unique: true, partialFilterExpression: { elderly: { $exists: true } } });
 
 // Pre-save middleware to set date to start of day
 attendanceSchema.pre('save', function(next) {
@@ -94,33 +103,36 @@ attendanceSchema.pre('save', function(next) {
 });
 
 // Static method to get attendance for a date range
-attendanceSchema.statics.getAttendanceByDateRange = async function(childId, startDate, endDate) {
+attendanceSchema.statics.getAttendanceByDateRange = async function(residentId, type, startDate, endDate) {
     const start = new Date(startDate);
     start.setHours(0, 0, 0, 0);
     
     const end = new Date(endDate);
     end.setHours(23, 59, 59, 999);
     
-    return this.find({
-        child: childId,
-        date: { $gte: start, $lte: end }
-    }).sort({ date: 1 });
+    const query = type === 'elderly' ? { elderly: residentId } : { child: residentId };
+    query.date = { $gte: start, $lte: end };
+
+    return this.find(query).sort({ date: 1 });
 };
 
-// Static method to mark attendance for multiple children
+// Static method to mark attendance for multiple residents
 attendanceSchema.statics.markBulkAttendance = async function(attendanceData, markedBy) {
     const operations = attendanceData.map(record => ({
         updateOne: {
             filter: {
-                child: record.child,
+                ...(record.child ? { child: record.child } : { elderly: record.elderly }),
                 date: new Date(record.date).setHours(0, 0, 0, 0)
             },
             update: {
                 $set: {
                     status: record.status,
                     remarks: record.remarks,
+                    temperature: record.temperature,
                     markedBy: markedBy,
-                    updatedAt: new Date()
+                    updatedAt: new Date(),
+                    // Set check-in time if status is present
+                    ...(record.status === 'present' ? { checkInTime: new Date() } : {})
                 },
                 $setOnInsert: {
                     createdAt: new Date()
@@ -134,17 +146,17 @@ attendanceSchema.statics.markBulkAttendance = async function(attendanceData, mar
 };
 
 // Method to calculate attendance percentage for a period
-attendanceSchema.statics.calculateAttendancePercentage = async function(childId, startDate, endDate) {
+attendanceSchema.statics.calculateAttendancePercentage = async function(residentId, type, startDate, endDate) {
     const start = new Date(startDate);
     start.setHours(0, 0, 0, 0);
     
     const end = new Date(endDate);
     end.setHours(23, 59, 59, 999);
     
-    const attendanceRecords = await this.find({
-        child: childId,
-        date: { $gte: start, $lte: end }
-    });
+    const query = type === 'elderly' ? { elderly: residentId } : { child: residentId };
+    query.date = { $gte: start, $lte: end };
+
+    const attendanceRecords = await this.find(query);
     
     if (attendanceRecords.length === 0) return 0;
     

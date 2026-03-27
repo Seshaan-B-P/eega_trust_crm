@@ -47,7 +47,7 @@ const childSchema = new mongoose.Schema({
     },
     bloodGroup: {
         type: String,
-        enum: ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-', null],
+        enum: ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-', '', null],
         default: null
     },
     assignedStaff: {
@@ -75,7 +75,7 @@ const childSchema = new mongoose.Schema({
         name: String,
         relationship: {
             type: String,
-            enum: ['mother', 'father', 'grandparent', 'uncle', 'aunt', 'guardian', 'other', null],
+            enum: ['mother', 'father', 'grandparent', 'uncle', 'aunt', 'guardian', 'other', '', null],
             default: null
         },
         phone: String,
@@ -95,22 +95,26 @@ const childSchema = new mongoose.Schema({
 });
 
 // Calculate age before saving
-childSchema.pre('save', function(next) {
+childSchema.pre('save', function (next) {
     if (this.dateOfBirth) {
         const today = new Date();
         const birthDate = new Date(this.dateOfBirth);
-        let age = today.getFullYear() - birthDate.getFullYear();
-        const monthDiff = today.getMonth() - birthDate.getMonth();
-        
-        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-            age--;
+
+        // Ensure date is valid before calculating age
+        if (!isNaN(birthDate.getTime())) {
+            let age = today.getFullYear() - birthDate.getFullYear();
+            const monthDiff = today.getMonth() - birthDate.getMonth();
+
+            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                age--;
+            }
+            this.age = age;
         }
-        this.age = age;
     }
-    
+
     // Update lastUpdated timestamp
     this.lastUpdated = new Date();
-    
+
     next();
 });
 
@@ -118,30 +122,30 @@ childSchema.pre('save', function(next) {
 childSchema.index({ name: 'text', childId: 'text', 'guardianInfo.name': 'text' });
 
 // Virtual for full name with ID
-childSchema.virtual('fullIdentifier').get(function() {
+childSchema.virtual('fullIdentifier').get(function () {
     return `${this.name} (${this.childId})`;
 });
 
 // Static method to get next child ID
-childSchema.statics.getNextChildId = async function() {
+childSchema.statics.getNextChildId = async function () {
     const currentYear = new Date().getFullYear().toString().slice(-2);
     const lastChild = await this.findOne(
         { childId: new RegExp(`^CH${currentYear}`) },
         { childId: 1 },
         { sort: { childId: -1 } }
     );
-    
+
     let sequence = 1;
     if (lastChild && lastChild.childId) {
         const lastSequence = parseInt(lastChild.childId.slice(-3)) || 0;
         sequence = lastSequence + 1;
     }
-    
+
     return `CH${currentYear}${sequence.toString().padStart(3, '0')}`;
 };
 
 // Method to get child's status color
-childSchema.methods.getStatusColor = function() {
+childSchema.methods.getStatusColor = function () {
     const colors = {
         active: 'success',
         discharged: 'secondary',

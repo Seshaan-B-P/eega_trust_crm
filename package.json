@@ -1,0 +1,21 @@
+{
+  "name": "mca-project",
+  "version": "1.0.0",
+  "description": "��#\u0000 \u0000E\u0000E\u0000G\u0000A\u0000-\u0000T\u0000r\u0000u\u0000s\u0000r\u0000t\u0000-\u0000C\u0000R\u0000M\u0000\r\u0000 \u0000",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Seshaan-B-P/eega_trust_crm.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Seshaan-B-P/eega_trust_crm/issues"
+  },
+  "homepage": "https://github.com/Seshaan-B-P/eega_trust_crm#readme"
+}

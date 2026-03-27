@@ -18,6 +18,11 @@ const userSchema = new mongoose.Schema({
     staffProfile: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Staff'
+    },
+    notificationSettings: {
+        email: { type: Boolean, default: true },
+        push: { type: Boolean, default: true },
+        sms: { type: Boolean, default: false }
     }
 });
 
@@ -54,9 +59,11 @@ userSchema.post('save', async function (doc, next) {
                     createdBy: doc._id
                 });
 
-                // Update user with staff profile reference
-                doc.staffProfile = staffProfile._id;
-                await doc.save();
+                // Update user with staff profile reference using updateOne to avoid infinite loop
+                await mongoose.model('User').updateOne(
+                    { _id: doc._id },
+                    { $set: { staffProfile: staffProfile._id } }
+                );
             }
         } catch (error) {
             console.error('Error creating staff profile:', error);

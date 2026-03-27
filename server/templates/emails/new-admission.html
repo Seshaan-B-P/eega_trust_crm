@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+        }
+
+        .container {
+            width: 80%;
+            margin: auto;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+        }
+
+        .header {
+            background: #10b981;
+            color: white;
+            padding: 10px;
+            text-align: center;
+            border-radius: 10px 10px 0 0;
+        }
+
+        .content {
+            padding: 20px;
+        }
+
+        .footer {
+            font-size: 0.8em;
+            color: #777;
+            text-align: center;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>New Child Admission</h1>
+        </div>
+        <div class="content">
+            <p>Dear {{staffName}},</p>
+            <p>A new child has been admitted to the center:</p>
+            <ul>
+                <li><strong>Name:</strong> {{childName}}</li>
+                <li><strong>ID:</strong> {{childId}}</li>
+                <li><strong>Age:</strong> {{age}}</li>
+                <li><strong>Date of Admission:</strong> {{admissionDate}}</li>
+            </ul>
+            <p><strong>Background:</strong></p>
+            <p>{{background}}</p>
+            <p>Please prepare for the child's welcome and integration.</p>
+            <p>Best regards,<br>EEGA Trust Administration</p>
+        </div>
+        <div class="footer">
+            &copy; 2026 EEGA Trust. All rights reserved.
+        </div>
+    </div>
+</body>
+
+</html>

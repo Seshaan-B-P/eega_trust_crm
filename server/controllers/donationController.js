@@ -1,6 +1,8 @@
 const Donation = require('../models/Donation');
 const User = require('../models/User');
 const mongoose = require('mongoose');
+const PDFGenerator = require('../services/pdfGenerator');
+const { createNotification } = require('../utils/notificationHelper');
 
 // @desc    Create new donation
 // @route   POST /api/donations
@@ -14,6 +16,17 @@ exports.createDonation = async (req, res) => {
         };
 
         const donation = await Donation.create(donationData);
+
+        // Notify admins if created by staff
+        if (req.user.role === 'staff') {
+            await createNotification({
+                title: 'New Donation Created',
+                message: `Staff ${req.user.name} created a new donation of ₹${donation.amount} from ${donation.donorName}`,
+                type: 'donation',
+                data: { donationId: donation._id },
+                createdBy: req.user._id
+            });
+        }
 
         const populatedDonation = await Donation.findById(donation._id)
             .populate('receivedBy', 'name email')
@@ -130,6 +143,19 @@ exports.getAllDonations = async (req, res) => {
             }
         ]);
 
+        // This month's donations Total
+        const startOfMonth = new Date();
+        startOfMonth.setDate(1);
+        startOfMonth.setHours(0, 0, 0, 0);
+        
+        const monthStats = await Donation.aggregate([
+            { $match: { date: { $gte: startOfMonth } } },
+            { $group: { _id: null, total: { $sum: '$amount' } } }
+        ]);
+
+        const finalStats = stats[0] || { totalAmount: 0, count: 0 };
+        finalStats.thisMonth = monthStats[0]?.total || 0;
+
         // Type distribution
         const typeDistribution = await Donation.aggregate([
             { $match: query },
@@ -162,7 +188,7 @@ exports.getAllDonations = async (req, res) => {
             total,
             totalPages: Math.ceil(total / limitNum),
             currentPage: pageNum,
-            stats: stats[0] || { totalAmount: 0, count: 0 },
+            stats: finalStats,
             distributions: {
                 byType: typeDistribution,
                 byPurpose: purposeDistribution
@@ -239,6 +265,17 @@ exports.updateDonation = async (req, res) => {
             { new: true, runValidators: true }
         ).populate('receivedBy', 'name email')
             .populate('verifiedBy', 'name email');
+
+        // Notify admins if updated by staff
+        if (req.user.role === 'staff') {
+            await createNotification({
+                title: 'Donation Updated',
+                message: `Staff ${req.user.name} updated donation ${updatedDonation.donationId}`,
+                type: 'donation',
+                data: { donationId: updatedDonation._id },
+                createdBy: req.user._id
+            });
+        }
 
         res.status(200).json({
             success: true,
@@ -354,16 +391,11 @@ exports.generateReceipt = async (req, res) => {
             });
         }
 
-        if (donation.status !== 'verified') {
-            return res.status(400).json({
-                success: false,
-                message: 'Donation must be verified before generating receipt'
-            });
-        }
-
-        // Generate receipt (PDF generation logic would go here)
+        // Generate receipt using PDFGenerator (even if already generated, to fix broken/old links)
+        const result = await PDFGenerator.generateDonationReceipt(donation, req.user);
+        
         donation.receiptGenerated = true;
-        donation.receiptUrl = `/receipts/${donation.receiptNumber}.pdf`;
+        donation.receiptUrl = result.url;
         await donation.save();
 
         res.status(200).json({

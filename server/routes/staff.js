@@ -6,7 +6,7 @@ const {
     getStaffById,
     createStaff,
     updateStaff,
-    deactivateStaff,
+    deleteStaff,
     getStaffStats
 } = require('../controllers/staffController');
 const { authenticate, authorize } = require('../middleware/auth');
@@ -25,6 +25,6 @@ router.get('/', getAllStaff);
 router.get('/:id', getStaffById);
 router.post('/', createStaff);
 router.put('/:id', updateStaff);
-router.delete('/:id', deactivateStaff);
+router.delete('/:id', deleteStaff);
 
 module.exports = router;
