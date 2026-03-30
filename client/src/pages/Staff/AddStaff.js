@@ -22,7 +22,10 @@ const validationSchema = Yup.object({
             .email('Invalid email format'),
         password: Yup.string()
             .required('Password is required')
-            .min(6, 'Password must be at least 6 characters'),
+            .min(6, 'Password must be at least 6 characters')
+            .matches(/[a-z]/, 'Password must contain at least one lowercase letter')
+            .matches(/[A-Z]/, 'Password must contain at least one uppercase letter')
+            .matches(/[!@#$%^&*(),.?":{}|<>]/, 'Password must contain at least one symbol (special character)'),
         phone: Yup.string()
             .matches(/^[0-9]{10}$/, 'Phone must be 10 digits')
             .required('Phone number is required'),
@@ -477,9 +480,9 @@ const AddStaff = () => {
                                             <ul className="text-sm text-primary-700 dark:text-gray-300 space-y-1">
                                                 <li>• Employee ID will be auto-generated upon creation</li>
                                                 <li>• Staff member will receive an email with login credentials</li>
-                                                <li>• Default password can be changed after first login</li>
-                                                <li>• Working days can be modified later in staff settings</li>
-                                                <li>• Emergency contact details are optional but recommended</li>
+                                                <li>• STRONG PASSWORD: Must include UPPERCASE, lowercase, and symbols.</li>
+                                                <li>• REGULAR UPDATES: Change your password every few months.</li>
+                                                <li>• UNIQUE PASSWORD: Do not use the same password for other sites.</li>
                                             </ul>
                                         </div>
                                     </div>

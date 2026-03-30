@@ -6,7 +6,6 @@
   "scripts": {
     "start": "node server.js",
     "dev": "cross-env NODE_OPTIONS=--no-deprecation nodemon server.js",
-    "setup": "node setup.js",
     "test:auth": "curl -X POST http://localhost:5000/api/auth/login -H \"Content-Type: application/json\" -d '{\"email\":\"admin@eega.com\",\"password\":\"admin123\"}'",
     "clean": "rm -rf node_modules package-lock.json && npm install"
   },

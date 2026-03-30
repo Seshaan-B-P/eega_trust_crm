@@ -794,7 +794,7 @@ exports.getAttendanceStats = async (req, res) => {
         const todaysAttendance = await Attendance.countDocuments({
             ...residentMatch,
             date: { $gte: today },
-            status: 'present'
+            status: { $in: ['present', 'sick', 'half_day'] }
         });
 
         // Last 7 days statistics
@@ -850,7 +850,7 @@ exports.getAttendanceStats = async (req, res) => {
                     _id: null,
                     presentDays: {
                         $sum: {
-                            $cond: [{ $in: ["$status", ["present", "half_day"]] }, 1, 0]
+                            $cond: [{ $in: ["$status", ["present", "sick", "half_day"]] }, 1, 0]
                         }
                     },
                     totalDays: { $sum: 1 }
@@ -859,7 +859,12 @@ exports.getAttendanceStats = async (req, res) => {
         ]);
 
         const monthlyPercentage = monthlyStats.length > 0 ?
-            (monthlyStats[0].presentDays / monthlyStats[0].totalDays) * 100 : 0;
+            ((monthlyStats[0].presentDays / monthlyStats[0].totalDays) * 100).toFixed(2) : "0.00";
+
+        // Today's attendance percentage
+        const totalActive = (totalActiveChildren || 0) + (totalActiveElderly || 0);
+        const todayPercentage = totalActive > 0 ? 
+            ((todaysAttendance / totalActive) * 100).toFixed(2) : "0.00";
 
         // Children with low attendance (below 80% in last 30 days)
         const childQuery = req.user.role === 'staff' ? { assignedStaff: req.user.id, status: 'active' } : { status: 'active' };
@@ -929,15 +934,20 @@ exports.getAttendanceStats = async (req, res) => {
                     today: todaysAttendance,
                     totalChildren: totalActiveChildren,
                     totalElderly: totalActiveElderly,
-                    totalActive: totalActiveChildren + totalActiveElderly
+                    totalActive: totalActive
                 },
                 last7Days: last7DaysStats,
                 trends: {
                     daily: last30DaysTrend
                 },
                 monthly: {
-                    percentage: monthlyPercentage.toFixed(2),
+                    percentage: monthlyPercentage,
                     ...(monthlyStats[0] || { presentDays: 0, totalDays: 0 })
+                },
+                todayStats: {
+                    percentage: todayPercentage,
+                    totalPresent: todaysAttendance,
+                    totalActive: totalActive
                 },
                 lowAttendanceChildren
             }

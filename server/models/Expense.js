@@ -65,7 +65,6 @@ expenseSchema.pre('validate', async function (next) {
 });
 
 // Indexes
-expenseSchema.index({ expenseId: 1 });
 expenseSchema.index({ category: 1 });
 expenseSchema.index({ date: -1 });
 expenseSchema.index({ status: 1 });

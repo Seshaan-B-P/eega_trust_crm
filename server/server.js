@@ -4,6 +4,9 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
+const handlebars = require('handlebars');
+
 
 const app = express();
 
@@ -39,8 +42,8 @@ const connectDB = async () => {
         return conn;
     } catch (error) {
         console.error('❌ MongoDB Connection Error:', error.message);
-        console.log('⚠️  Running in memory-only mode (data will not persist)');
-        return null;
+        console.error('CRITICAL: Database connection failed. Persistent mode required.');
+        process.exit(1); // Fail-fast for persistence
     }
 };
 
@@ -49,10 +52,11 @@ app.get('/', (req, res) => {
     res.json({
         success: true,
         message: '🎉 EEGA Trust CRM API',
-        version: '1.0.1',
+        version: '1.2.0',
         status: 'running',
         timestamp: new Date().toISOString(),
         database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+        documentation: 'http://localhost:' + (process.env.PORT || 5000) + '/api/docs',
         endpoints: {
             auth: '/api/auth',
             children: '/api/children',
@@ -88,72 +92,142 @@ app.get('/health', (req, res) => {
 
 // ========== API DOCUMENTATION ==========
 app.get('/api/docs', (req, res) => {
-    res.json({
-        title: 'EEGA Trust CRM API Documentation',
-        version: '1.0.0',
-        baseURL: 'http://localhost:' + (process.env.PORT || 5000),
-        authentication: 'Bearer Token required for all endpoints except /api/auth/login',
+    try {
+        const templatePath = path.join(__dirname, 'templates/docs.hbs');
+        const source = fs.readFileSync(templatePath, 'utf8');
+        const template = handlebars.compile(source);
 
-        endpoints: [
-            {
-                method: 'POST',
-                path: '/api/auth/login',
-                description: 'User login',
-                body: '{ email: "admin@eega.com", password: "admin123" }'
-            },
-            {
-                method: 'GET',
-                path: '/api/children',
-                description: 'Get all children',
-                auth: true
-            },
-            {
-                method: 'POST',
-                path: '/api/children',
-                description: 'Create new child',
-                auth: true,
-                role: 'admin'
-            },
-            {
-                method: 'GET',
-                path: '/api/staff',
-                description: 'Get all staff',
-                auth: true,
-                role: 'admin'
-            },
-            {
-                method: 'POST',
-                path: '/api/reports',
-                description: 'Create daily report',
-                auth: true
-            },
-            {
-                method: 'POST',
-                path: '/api/attendance',
-                description: 'Mark attendance',
-                auth: true
-            },
-            {
-                method: 'GET',
-                path: '/api/expenses',
-                description: 'Get all expenses',
-                auth: true,
-                role: 'admin'
-            },
-            {
-                method: 'POST',
-                path: '/api/expenses',
-                description: 'Create new expense',
-                auth: true,
-                role: 'admin'
-            }
-        ],
+        const apiData = {
+            title: 'EEGA Trust CRM API',
+            version: '1.2.0',
+            baseURL: `${req.protocol}://${req.get('host')}`,
+            timestamp: new Date().toLocaleDateString('en-US', { 
+                weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
+            }),
+            authentication: 'Bearer JWT Token in Authorization header',
+            totalEndpoints: 85,
+            moduleCount: 14,
+            modules: [
+                {
+                    name: 'Authentication',
+                    endpoints: [
+                        { method: 'POST', path: '/api/auth/register', description: 'Register a new user' },
+                        { method: 'POST', path: '/api/auth/login', description: 'User login', body: '{"email": "admin@eega.com", "password": "admin123"}' },
+                        { method: 'POST', path: '/api/auth/forgot-password', description: 'Request password reset' },
+                        { method: 'GET', path: '/api/auth/profile', auth: true, description: 'Get current user profile' },
+                        { method: 'PUT', path: '/api/auth/profile', auth: true, description: 'Update user profile' },
+                        { method: 'PUT', path: '/api/auth/change-password', auth: true, description: 'Change password' },
+                        { method: 'POST', path: '/api/auth/profile/photo', auth: true, description: 'Upload profile photo (multipart/form-data)' },
+                        { method: 'DELETE', path: '/api/auth/profile/photo', auth: true, description: 'Delete profile photo' }
+                    ]
+                },
+                {
+                    name: 'Children Management',
+                    endpoints: [
+                        { method: 'GET', path: '/api/children', auth: true, description: 'List all children with filtering & pagination' },
+                        { method: 'POST', path: '/api/children', auth: true, role: 'staff, admin', description: 'Register a new child' },
+                        { method: 'GET', path: '/api/children/:id', auth: true, description: 'Get child details by ID or childId' },
+                        { method: 'PUT', path: '/api/children/:id', auth: true, role: 'admin', description: 'Update child information' },
+                        { method: 'DELETE', path: '/api/children/:id', auth: true, role: 'admin', description: 'Delete child record (cascade delete)' },
+                        { method: 'GET', path: '/api/children/stats/overview', auth: true, description: 'Get children statistics' },
+                        { method: 'POST', path: '/api/children/:id/photo', auth: true, description: 'Upload child photo' }
+                    ]
+                },
+                {
+                    name: 'Elderly Residents',
+                    endpoints: [
+                        { method: 'GET', path: '/api/elderly', auth: true, description: 'List all elderly residents' },
+                        { method: 'POST', path: '/api/elderly', auth: true, description: 'Add new elderly resident' },
+                        { method: 'GET', path: '/api/elderly/:id', auth: true, description: 'Get resident details' },
+                        { method: 'PUT', path: '/api/elderly/:id', auth: true, description: 'Update resident info' },
+                        { method: 'DELETE', path: '/api/elderly/:id', auth: true, role: 'admin', description: 'Remove resident' },
+                        { method: 'POST', path: '/api/elderly/:id/activities', auth: true, description: 'Add activity log' },
+                        { method: 'GET', path: '/api/elderly/stats', auth: true, description: 'Get elderly statistics' }
+                    ]
+                },
+                {
+                    name: 'Staff Management',
+                    endpoints: [
+                        { method: 'GET', path: '/api/staff', auth: true, role: 'admin', description: 'List all staff members' },
+                        { method: 'POST', path: '/api/staff', auth: true, role: 'admin', description: 'Create staff account' },
+                        { method: 'GET', path: '/api/staff/available', auth: true, description: 'Get staff available for assignment' },
+                        { method: 'GET', path: '/api/staff/:id', auth: true, role: 'admin', description: 'Get staff details' },
+                        { method: 'PUT', path: '/api/staff/:id', auth: true, role: 'admin', description: 'Update staff record' },
+                        { method: 'DELETE', path: '/api/staff/:id', auth: true, role: 'admin', description: 'Remove staff' }
+                    ]
+                },
+                {
+                    name: 'Daily Reports',
+                    endpoints: [
+                        { method: 'GET', path: '/api/reports', auth: true, description: 'List all daily reports' },
+                        { method: 'POST', path: '/api/reports', auth: true, description: 'Create new daily report' },
+                        { method: 'GET', path: '/api/reports/:id', auth: true, description: 'Get report details' },
+                        { method: 'GET', path: '/api/reports/resident/:type/:residentId', auth: true, description: 'Get reports for specific resident' },
+                        { method: 'GET', path: '/api/reports/attention/needed', auth: true, role: 'admin', description: 'Get reports flagged for attention' },
+                        { method: 'PUT', path: '/api/reports/:id/resolve', auth: true, role: 'admin', description: 'Mark report as resolved' }
+                    ]
+                },
+                {
+                    name: 'Attendance',
+                    endpoints: [
+                        { method: 'GET', path: '/api/attendance', auth: true, description: 'List attendance records' },
+                        { method: 'POST', path: '/api/attendance', auth: true, description: 'Mark single attendance' },
+                        { method: 'POST', path: '/api/attendance/bulk', auth: true, description: 'Mark bulk attendance' },
+                        { method: 'GET', path: '/api/attendance/today/summary', auth: true, description: 'Get today\'s attendance summary' },
+                        { method: 'GET', path: '/api/attendance/stats', auth: true, description: 'Get attendance statistics' }
+                    ]
+                },
+                {
+                    name: 'Donations & Finance',
+                    endpoints: [
+                        { method: 'GET', path: '/api/donations', auth: true, description: 'List all donations' },
+                        { method: 'POST', path: '/api/donations', auth: true, description: 'Log new donation' },
+                        { method: 'PUT', path: '/api/donations/:id/verify', auth: true, role: 'admin', description: 'Verify donation record' },
+                        { method: 'POST', path: '/api/donations/:id/generate-receipt', auth: true, role: 'admin', description: 'Generate PDF receipt' },
+                        { method: 'GET', path: '/api/expenses', auth: true, role: 'admin', description: 'List all expenses' },
+                        { method: 'POST', path: '/api/expenses', auth: true, role: 'admin', description: 'Log new expense' },
+                        { method: 'GET', path: '/api/donations/stats', auth: true, description: 'Get donation statistics' }
+                    ]
+                },
+                {
+                    name: 'Inventory System',
+                    endpoints: [
+                        { method: 'GET', path: '/api/inventory', auth: true, description: 'List inventory items' },
+                        { method: 'POST', path: '/api/inventory', auth: true, role: 'staff, admin', description: 'Add new item' },
+                        { method: 'PATCH', path: '/api/inventory/:id/stock', auth: true, description: 'Update stock levels' },
+                        { method: 'GET', path: '/api/inventory/stats/summary', auth: true, description: 'Inventory health summary' }
+                    ]
+                },
+                {
+                    name: 'Analytics',
+                    endpoints: [
+                        { method: 'GET', path: '/api/analytics/dashboard', auth: true, role: 'staff, admin', description: 'Full system analytics' },
+                        { method: 'GET', path: '/api/analytics/predictive', auth: true, role: 'admin', description: 'Resource forecasting' },
+                        { method: 'GET', path: '/api/analytics/export', auth: true, role: 'admin', description: 'Export raw data' }
+                    ]
+                },
+                {
+                    name: 'Internal Services',
+                    endpoints: [
+                        { method: 'GET', path: '/api/notifications', auth: true, description: 'Get user notifications' },
+                        { method: 'PATCH', path: '/api/notifications/:id/read', auth: true, description: 'Mark notification as read' },
+                        { method: 'GET', path: '/api/search', auth: true, description: 'Global cross-module search' },
+                        { method: 'GET', path: '/health', description: 'Server health check' },
+                        { method: 'GET', path: '/api/health/stats/distribution', auth: true, description: 'Resident health distribution stats' }
+                    ]
+                }
+            ]
+        };
 
-        testCredentials: {
-            admin: { email: 'admin@eega.com', password: 'admin123' },
-            staff: { email: 'staff@eega.com', password: 'staff123' }
-        }
-    });
+        const html = template(apiData);
+        res.send(html);
+    } catch (error) {
+        console.error('Error rendering documentation:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error generating documentation'
+        });
+    }
 });
 
 
@@ -267,7 +341,7 @@ const startServer = async () => {
 💡 TIPS:
    • Use Postman or curl to test endpoints
    • Check /api/docs for API documentation
-   • All data is currently stored in memory
+   • All data is persistent in MongoDB
 ====================================
         `);
     });

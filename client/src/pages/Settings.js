@@ -36,7 +36,12 @@ const Settings = () => {
 
     const passwordValidationSchema = Yup.object({
         currentPassword: Yup.string().required('Current password required'),
-        newPassword: Yup.string().required('New password required').min(6, 'Too short (min 6 chars)'),
+        newPassword: Yup.string()
+            .required('New password required')
+            .min(6, 'Too short (min 6 chars)')
+            .matches(/[a-z]/, 'Must contain one lowercase letter')
+            .matches(/[A-Z]/, 'Must contain one uppercase letter')
+            .matches(/[!@#$%^&*(),.?":{}|<>]/, 'Must contain one symbol (special character)'),
         confirmPassword: Yup.string().required('Confirmation mandatory').oneOf([Yup.ref('newPassword'), null], 'Passwords do not match')
     });
 
@@ -337,7 +342,7 @@ const Settings = () => {
                                             <div>
                                                 <h4 className="text-sm font-black text-amber-700 uppercase tracking-widest mb-2">Security Tips</h4>
                                                 <ul className="text-xs text-amber-600/80 font-bold space-y-2 leading-relaxed">
-                                                    <li>• STRONG PASSWORD: Mix letters, numbers, and symbols.</li>
+                                                    <li>• STRONG PASSWORD: Must include UPPERCASE, lowercase, and symbols.</li>
                                                     <li>• REGULAR UPDATES: Change your password every few months.</li>
                                                     <li>• UNIQUE PASSWORD: Do not use the same password for other sites.</li>
                                                 </ul>

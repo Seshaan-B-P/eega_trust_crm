@@ -47,8 +47,9 @@ const upload = multer({
 // All routes are protected
 router.use(protect);
 
-// Statistics route (allow both staff and admin)
+// Statistics routes
 router.get('/stats', staffOrAdmin, getElderlyStats);
+router.get('/stats/overview', staffOrAdmin, getElderlyStats);
 
 // Main routes
 router.route('/')

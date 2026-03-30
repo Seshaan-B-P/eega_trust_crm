@@ -326,10 +326,16 @@ const getElderlyStats = async (req, res) => {
             }
         ]);
 
+        const deceased = await Elderly.countDocuments({ status: 'Deceased' });
+        const hospitalized = await Elderly.countDocuments({ status: 'Hospitalized' });
+
         res.json({
             success: true,
-            data: {
+            stats: {
                 total,
+                active: total, // Assuming Active matches total provided by current query
+                hospitalized,
+                deceased,
                 bySpecialNeeds,
                 ageGroups
             }

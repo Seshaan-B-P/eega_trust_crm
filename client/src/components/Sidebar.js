@@ -30,7 +30,6 @@ const Sidebar = () => {
         { path: '/expenses', label: 'Expenses', icon: <FiShoppingBag /> },
         { path: '/inventory', label: 'Inventory', icon: <FiBox /> },
         { path: '/reports', label: 'Daily Reports', icon: <FiFileText /> },
-        { path: '/attendance', label: 'Attendance', icon: <FiCalendar /> },
         { path: '/settings', label: 'Settings', icon: <FiSettings /> },
     ];
 

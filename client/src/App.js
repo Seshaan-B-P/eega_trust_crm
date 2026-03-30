@@ -108,10 +108,6 @@ function App() {
                                         <Route path="/reports/:id" element={<ReportDetails />} />
 
                                         {/* Attendance */}
-                                        <Route path="/attendance" element={<Attendance />} />
-                                        <Route path="/attendance/mark" element={<AttendanceMark />} />
-                                        <Route path="/attendance/report" element={<AttendanceReport />} />
-                                        <Route path="/attendance/:id" element={<AttendanceDetails />} />
                                         <Route path="/attendance/staff/mark" element={
                                             <AdminRoute>
                                                 <StaffAttendanceMark />

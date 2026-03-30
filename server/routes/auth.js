@@ -7,7 +7,8 @@ const {
     updateProfile,
     updateProfilePhoto,
     deleteProfilePhoto,
-    forgotPassword
+    forgotPassword,
+    changePassword
 } = require('../controllers/authController');
 const { authenticate } = require('../middleware/auth');
 const multer = require('multer');
@@ -54,6 +55,7 @@ router.post('/forgot-password', forgotPassword);
 // Profile routes
 router.get('/profile', authenticate, getProfile);
 router.put('/profile', authenticate, updateProfile);
+router.put('/change-password', authenticate, changePassword);
 router.post('/profile/photo', authenticate, upload.single('photo'), updateProfilePhoto);
 router.delete('/profile/photo', authenticate, deleteProfilePhoto);
 

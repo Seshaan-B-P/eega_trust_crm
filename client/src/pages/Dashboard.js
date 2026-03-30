@@ -39,7 +39,7 @@ const Dashboard = () => {
         elderly: { total: 0, active: 0, bySpecialNeeds: [] },
         staff: { total: 0, active: 0 },
         reports: { today: 0, total: 0 },
-        attendance: { today: 0, percentage: 0, dailyTrend: [] },
+        reports: { today: 0, total: 0 },
         donations: { total: 0, thisMonth: 0 },
         expenses: { total: 0, thisMonth: 0 },
         inventory: { totalItems: 0, lowStockItems: 0 }
@@ -66,7 +66,6 @@ const Dashboard = () => {
             try { elderlyRes = await api.get('/elderly/stats'); } catch (e) { }
             const staffRes = await api.get('/staff/stats/overview');
             const reportsRes = await api.get('/reports/stats/overview');
-            const attendanceRes = await api.get('/attendance/stats/overview');
             let healthRes = { data: { data: { excellent: 0, good: 0, fair: 0, poor: 0 } } };
             try { healthRes = await api.get('/health/stats/distribution'); } catch (e) { }
             let recentElderlyRes = { data: { data: [] } };
@@ -91,9 +90,10 @@ const Dashboard = () => {
                     active: childrenRes.data.stats?.active || 0
                 },
                 elderly: {
-                    total: elderlyRes.data.data?.total || 0,
-                    active: elderlyRes.data.data?.active || 0,
-                    bySpecialNeeds: elderlyRes.data.data?.bySpecialNeeds || []
+                    total: elderlyRes.data.stats?.total || 0,
+                    active: elderlyRes.data.stats?.active || 0,
+                    hospitalized: elderlyRes.data.stats?.hospitalized || 0,
+                    deceased: elderlyRes.data.stats?.deceased || 0
                 },
                 staff: {
                     total: staffRes.data.data?.total || 0,
@@ -102,11 +102,6 @@ const Dashboard = () => {
                 reports: {
                     today: reportsRes.data.data?.todayReports || 0,
                     total: reportsRes.data.data?.totalReports || 0
-                },
-                attendance: {
-                    today: attendanceRes.data.data?.totals?.today || 0,
-                    percentage: attendanceRes.data.data?.monthly?.percentage || 0,
-                    dailyTrend: attendanceRes.data.data?.trends?.daily || []
                 },
                 donations: {
                     total: donationsRes.data.data?.totals?.totalAmount || 0,
@@ -171,15 +166,6 @@ const Dashboard = () => {
             change: 'Updated',
             shadow: 'shadow-violet-500/20'
         },
-        ...(user?.role === 'admin' ? [{
-            title: 'Attendance %',
-            value: `${stats.attendance.percentage}%`,
-            icon: <FiCheckCircle className="h-6 w-6" />,
-            color: 'from-cyan-500 to-blue-600',
-            link: '/attendance',
-            change: 'Excellent',
-            shadow: 'shadow-cyan-500/20'
-        }] : []),
         ...(user?.role === 'admin' ? [
             {
                 title: 'Monthly Cash Flow',
@@ -205,7 +191,7 @@ const Dashboard = () => {
     const quickActions = [
         { title: 'Add Child', description: 'Register new', icon: <FiUserPlus />, link: '/children/add', color: 'bg-blue-500' },
         { title: 'Add Elderly', description: 'Register new', icon: <FiHeart />, link: '/elderly/add', color: 'bg-rose-500' },
-        { title: 'Attendance', description: 'Mark today', icon: <FiCheckCircle />, link: '/attendance/mark', color: 'bg-cyan-500', adminOnly: true },
+        { title: 'Staff Attendance', description: 'Mark today', icon: <FiCheckCircle />, link: '/attendance/staff/mark', color: 'bg-cyan-500', adminOnly: true },
         { title: 'Daily Report', description: 'Update status', icon: <FiFileText />, link: '/reports/add', color: 'bg-violet-500' },
         ...(user?.role === 'admin' ? [
             { title: 'Donation', description: 'New receipt', icon: <FiHeart />, link: '/donations/add', color: 'bg-emerald-500' },
@@ -223,48 +209,6 @@ const Dashboard = () => {
         }]
     };
 
-    const attendanceChartData = {
-        labels: stats.attendance.dailyTrend?.map(item => new Date(item._id).toLocaleDateString('en-US', { weekday: 'short' })) || [],
-        datasets: [{
-            label: 'Attendance %',
-            data: stats.attendance.dailyTrend?.map(item => item.total > 0 ? Math.round((item.present / item.total) * 100) : 0) || [],
-            borderColor: '#707df7',
-            backgroundColor: 'rgba(112, 125, 247, 0.1)',
-            tension: 0.4,
-            fill: true,
-            pointBackgroundColor: '#707df7',
-            pointBorderColor: '#fff',
-            pointBorderWidth: 2,
-            pointRadius: 4,
-        }]
-    };
-
-    const chartOptions = {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: { display: false },
-            tooltip: {
-                backgroundColor: theme === 'dark' ? '#1e293b' : '#ffffff',
-                titleColor: theme === 'dark' ? '#f8fafc' : '#1e293b',
-                bodyColor: theme === 'dark' ? '#cbd5e1' : '#475569',
-                borderColor: theme === 'dark' ? '#334155' : '#e2e8f0',
-                borderWidth: 1
-            }
-        },
-        scales: {
-            y: {
-                beginAtZero: true,
-                max: 100,
-                grid: { color: theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)' },
-                ticks: { color: theme === 'dark' ? '#94a3b8' : '#64748b' }
-            },
-            x: {
-                grid: { display: false },
-                ticks: { color: theme === 'dark' ? '#94a3b8' : '#64748b' }
-            }
-        }
-    };
 
     const pieOptions = {
         responsive: true,
@@ -393,23 +337,6 @@ const Dashboard = () => {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mt-10">
                 {/* Left Column - Charts */}
                 <div className="lg:col-span-8 space-y-8">
-                    {user?.role === 'admin' && (
-                        <motion.div variants={itemVariants} className="card p-8 !rounded-[2.5rem] shadow-sm">
-                            <div className="flex items-center justify-between mb-8">
-                                <div>
-                                    <h4 className="text-lg font-black text-slate-800 dark:text-white">Attendance History</h4>
-                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] mt-1">Last 7 days</p>
-                                </div>
-                                <div className="flex space-x-1 p-1 bg-slate-100 dark:bg-slate-800/50 rounded-xl">
-                                    <button className="px-4 py-1.5 bg-white dark:bg-slate-700 shadow-sm rounded-lg text-xs font-bold text-primary-600">Weekly</button>
-                                    <button className="px-4 py-1.5 text-xs font-bold text-slate-400">Monthly</button>
-                                </div>
-                            </div>
-                            <div className="h-72">
-                                <Line data={attendanceChartData} options={chartOptions} />
-                            </div>
-                        </motion.div>
-                    )}
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                         <motion.div variants={itemVariants} className="card p-8 !rounded-[2.5rem] shadow-sm">

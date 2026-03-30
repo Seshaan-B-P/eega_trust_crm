@@ -249,7 +249,7 @@ exports.updateStaff = async (req, res) => {
         }
 
         const {
-            name, email, phone, address, isActive,
+            name, email, password, phone, address, isActive,
             designation, department, salary, shift, status,
             maxChildrenCapacity, qualification, experience,
             workingDays, emergencyContact
@@ -263,6 +263,10 @@ exports.updateStaff = async (req, res) => {
                 if (email) user.email = email;
                 if (phone) user.phone = phone;
                 if (address) user.address = address;
+                if (password) {
+                    user.password = password;
+                    console.log(`Setting new password for user ${user.email}`);
+                }
                 if (typeof isActive !== 'undefined') user.isActive = isActive;
                 await user.save();
             }

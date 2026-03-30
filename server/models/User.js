@@ -26,14 +26,29 @@ const userSchema = new mongoose.Schema({
     }
 });
 
-// Hash password before saving
+// Hash password and normalize email before saving
 userSchema.pre('save', async function (next) {
+    if (this.email) {
+        this.email = this.email.toLowerCase().trim();
+    }
+    
     if (!this.isModified('password')) {
         console.log('Password not modified, skipping hash');
         return next();
     }
-    console.log('Password modified, hashing...');
+    console.log('Password modified, trimming and hashing...');
     try {
+        // Trim password before hashing to match login behavior
+        this.password = this.password.trim();
+
+        // One uppercase, one lowercase, one symbol, min 6 chars
+        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*(),.?":{}|<>]).{6,}$/;
+        if (!passwordRegex.test(this.password)) {
+            const error = new Error('Password must contain at least one uppercase letter, one lowercase letter, and one symbol (special character).');
+            error.name = 'ValidationError';
+            return next(error);
+        }
+
         const salt = await bcrypt.genSalt(10);
         this.password = await bcrypt.hash(this.password, salt);
         console.log('Password hashed successfully');

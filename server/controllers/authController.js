@@ -119,8 +119,8 @@ exports.login = async (req, res) => {
 
         console.log(`Login Request: Email="${email}" (len=${email.length}), Password (len=${password.length})`);
 
-        // Trim input to avoid copy-paste errors
-        const cleanEmail = email.trim();
+        // Trim and lowercase input to avoid copy-paste and case errors
+        const cleanEmail = email.trim().toLowerCase();
         const cleanPassword = password.trim();
 
         // Check for user
@@ -232,16 +232,9 @@ exports.updateProfile = async (req, res) => {
             };
         }
 
-        if (req.body.password) {
-            if (user.role !== 'admin') {
-                return res.status(403).json({
-                    success: false,
-                    message: 'Only admins can change passwords'
-                });
-            }
-            user.password = req.body.password;
-        }
-
+        // Password change is now handled by the dedicated changePassword endpoint
+        // for better security (requires current password verification)
+        
         const updatedUser = await user.save();
 
         res.json({
@@ -350,6 +343,54 @@ exports.deleteProfilePhoto = async (req, res) => {
             success: false,
             message: 'Error removing photo',
             error: error.message
+        });
+    }
+};
+// @desc    Change password
+// @route   PUT /api/auth/change-password
+// @access  Private
+exports.changePassword = async (req, res) => {
+    try {
+        const { currentPassword, newPassword } = req.body;
+
+        if (!currentPassword || !newPassword) {
+            return res.status(400).json({
+                success: false,
+                message: 'Please provide current and new password'
+            });
+        }
+
+        const user = await User.findById(req.user.id).select('+password');
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
+        // Check current password (trimming is handled by comparePassword calling bcrypt)
+        const isMatch = await user.comparePassword(currentPassword);
+        if (!isMatch) {
+            return res.status(401).json({
+                success: false,
+                message: 'Current password is incorrect'
+            });
+        }
+
+        // Set new password (will be trimmed and hashed in pre-save hook)
+        user.password = newPassword;
+        await user.save();
+
+        res.json({
+            success: true,
+            message: 'Password changed successfully'
+        });
+    } catch (error) {
+        console.error('Change password error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error'
         });
     }
 };

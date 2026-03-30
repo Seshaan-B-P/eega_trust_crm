@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{title}} - API Documentation</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-glow: rgba(99, 102, 241, 0.5);
+            --secondary: #ec4899;
+            --accent: #22d3ee;
+            --bg-dark: #0f172a;
+            --glass: rgba(30, 41, 59, 0.7);
+            --border: rgba(255, 255, 255, 0.1);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            background-image: 
+                radial-gradient(at 0% 0%, var(--primary-glow) 0, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(236, 72, 153, 0.2) 0, transparent 50%);
+            color: var(--text-main);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 4rem;
+            animation: fadeInDown 0.8s ease-out;
+        }
+
+        h1 {
+            font-size: 3.5rem;
+            font-weight: 700;
+            background: linear-gradient(to right, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 1rem;
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            color: var(--text-muted);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+        }
+
+        .stat-card {
+            background: var(--glass);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            padding: 1.5rem;
+            border-radius: 1.5rem;
+            text-align: center;
+            transition: transform 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--primary);
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--accent);
+            display: block;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .section-title {
+            font-size: 1.8rem;
+            margin: 3rem 0 1.5rem;
+            padding-left: 1rem;
+            border-left: 4px solid var(--primary);
+        }
+
+        .endpoint-card {
+            background: var(--glass);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            margin-bottom: 1.5rem;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .endpoint-card:hover {
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            border-color: rgba(255,255,255,0.2);
+        }
+
+        .endpoint-header {
+            padding: 1.25rem 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            cursor: pointer;
+            background: rgba(255,255,255,0.02);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .method {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            padding: 0.4rem 0.8rem;
+            border-radius: 0.5rem;
+            font-size: 0.85rem;
+            min-width: 80px;
+            text-align: center;
+        }
+
+        .method.GET { background: #10b981; color: white; }
+        .method.POST { background: #3b82f6; color: white; }
+        .method.PUT { background: #f59e0b; color: white; }
+        .method.DELETE { background: #ef4444; color: white; }
+        .method.PATCH { background: #8b5cf6; color: white; }
+
+        .path {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-main);
+            font-weight: 500;
+            flex-grow: 1;
+        }
+
+        .auth-badge {
+            background: rgba(255,255,255,0.1);
+            padding: 0.25rem 0.6rem;
+            border-radius: 2rem;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            border: 1px solid var(--border);
+        }
+
+        .endpoint-details {
+            padding: 1.5rem;
+            background: rgba(0,0,0,0.2);
+        }
+
+        .description {
+            color: var(--text-muted);
+            margin-bottom: 1rem;
+        }
+
+        pre {
+            background: #020617;
+            padding: 1rem;
+            border-radius: 0.75rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            overflow-x: auto;
+            border: 1px solid #1e293b;
+            margin-top: 0.5rem;
+        }
+
+        code {
+            color: #d1d5db;
+        }
+
+        .badge-group {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .role-badge {
+            background: rgba(99, 102, 241, 0.1);
+            color: var(--primary);
+            border: 1px solid var(--primary);
+            padding: 0.2rem 0.5rem;
+            border-radius: 0.4rem;
+            font-size: 0.75rem;
+        }
+
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 5rem;
+            padding-bottom: 3rem;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 768px) {
+            h1 { font-size: 2.5rem; }
+            .endpoint-header { flex-wrap: wrap; }
+            .path { width: 100%; order: 3; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>{{title}}</h1>
+            <p class="subtitle">Version {{version}} • {{timestamp}}</p>
+        </header>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <span class="stat-value">{{totalEndpoints}}</span>
+                <span class="stat-label">Total Endpoints</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-value">{{moduleCount}}</span>
+                <span class="stat-label">Modules</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-value">RESTful</span>
+                <span class="stat-label">Architecture</span>
+            </div>
+        </div>
+
+        <section id="getting-started">
+            <h2 class="section-title">Getting Started</h2>
+            <div class="endpoint-card">
+                <div class="endpoint-details">
+                    <p class="description">Base URL: <code>{{baseURL}}</code></p>
+                    <p class="description">Authentication: {{authentication}}</p>
+                </div>
+            </div>
+        </section>
+
+        {{#each modules}}
+        <section id="{{name}}">
+            <h2 class="section-title">{{name}}</h2>
+            {{#each endpoints}}
+            <div class="endpoint-card">
+                <div class="endpoint-header">
+                    <span class="method {{method}}">{{method}}</span>
+                    <span class="path">{{path}}</span>
+                    {{#if auth}}<span class="auth-badge">🔒 Auth</span>{{/if}}
+                </div>
+                <div class="endpoint-details">
+                    <p class="description">{{description}}</p>
+                    {{#if body}}
+                    <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem; text-transform: uppercase;">Request Body:</p>
+                    <pre><code>{{body}}</code></pre>
+                    {{/if}}
+                    <div class="badge-group">
+                        {{#if role}}<span class="role-badge">Role: {{role}}</span>{{/if}}
+                    </div>
+                </div>
+            </div>
+            {{/each}}
+        </section>
+        {{/each}}
+
+        <footer>
+            <p>&copy; 2026 EEGA Trust CRM • Built with &hearts; for the community</p>
+        </footer>
+    </div>
+</body>
+</html>

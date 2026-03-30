@@ -154,7 +154,6 @@ donationSchema.pre('validate', async function (next) {
 });
 
 // Indexes
-donationSchema.index({ donationId: 1 });
 donationSchema.index({ donorName: 1 });
 donationSchema.index({ date: -1 });
 donationSchema.index({ status: 1 });

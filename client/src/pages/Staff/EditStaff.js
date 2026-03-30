@@ -22,8 +22,15 @@ const validationSchema = Yup.object({
             .required('Email is required')
             .email('Invalid email format'),
         password: Yup.string()
-            .min(6, 'Password must be at least 6 characters')
-            .nullable(),
+            .ensure()
+            .test('password-strength', 'Password must meet all requirements', function(value) {
+                if (!value) return true; // Skip validation if empty
+                if (value.length < 6) return this.createError({ message: 'Password must be at least 6 characters' });
+                if (!/[a-z]/.test(value)) return this.createError({ message: 'Must contain a lowercase letter' });
+                if (!/[A-Z]/.test(value)) return this.createError({ message: 'Must contain an uppercase letter' });
+                if (!/[!@#$%^&*(),.?":{}|<>]/.test(value)) return this.createError({ message: 'Must contain a symbol' });
+                return true;
+            }),
         phone: Yup.string()
             .matches(/^[0-9]{10}$/, 'Phone must be 10 digits')
             .required('Phone number is required'),
