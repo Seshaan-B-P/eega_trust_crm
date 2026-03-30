@@ -9,7 +9,7 @@ A comprehensive Management Information System (MIS) and Customer Relationship Ma
 - **Elderly Care**: Profile management for elderly residents, focusing on healthcare and daily needs.
 - **Daily Reporting**: Systematically log daily activities and health reports for all residents.
 
-### 👥 human Resources
+### 👥 Human Resources
 - **Staff Management**: Centralized staff directory, role assignments, and performance monitoring.
 - **Attendance Tracking**: Automated daily attendance for staff and residents with detailed historical reporting.
 
